@@ -1,38 +1,178 @@
-.App {
-  text-align: center;
+/** @format */
+
+@import url("https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap");
+
+/* @import "~react-image-gallery/styles/css/image-gallery.css"; */
+
+* {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+	font-family: "Montserrat", "Poppins", sans-serif;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+.ant-select-item-option-content,
+.ant-select-item-option-state,
+.ant-select-item {
+	text-transform: capitalize !important;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+body {
+	background-color: #f0f0f0;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+.centered-calendar {
+	position: fixed !important;
+	left: 50% !important;
+	top: 35% !important;
+	transform: translate(-50%, -50%) !important;
+	z-index: 9999; /* Adjust if needed */
 }
 
-.App-link {
-  color: #61dafb;
+.centered-calendar2 {
+	position: fixed !important;
+	left: 50% !important;
+	top: 50% !important;
+	transform: translate(-50%, -50%) !important;
+	z-index: 9999; /* Adjust if needed */
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+:root {
+	/* --------------------------------- */
+	/* ORIGINAL ROOT VARIABLE NAMES WITH NEW SHADES */
+	/* --------------------------------- */
+
+	--primaryBlue: #1f3a52; /* Replacing #20212c with a slightly richer blue */
+	--primaryBlueDarker: #17293b; /* Replacing #1e2332 with a darker shade */
+	--orangeDark: #6f2d00; /* Replacing #501500 with a deeper warm color */
+	--orangeLight: #ffe4cc; /* Replacing #ffe3d9 with a more peachy neutral */
+	--mainGrey: #f8f8f8; /* Replacing #fafafa with subtle off-white */
+	--darkGrey: #5a5a5a; /* Replacing #5f5e5e with a new grey tone */
+	--mainWhite: #ffffff; /* Keep white */
+	--mainBlack: #222222; /* Keep black */
+	--mainTransition: all 0.3s ease-in-out; /* keep */
+	--mainSpacing: 0.3rem; /* keep */
+
+	/* Primary Colors */
+	--primary-color: var(--primaryBlue);
+	--primary-color-light: #2a5070;
+	--primary-color-lighter: #3a6a92;
+	--primary-color-dark: var(--primaryBlueDarker);
+	--primary-color-darker: #0f1c27;
+
+	/* Secondary Colors */
+	--secondary-color: var(--orangeDark);
+	--secondary-color-light: #8c4626;
+	--secondary-color-lighter: #ad6b4b;
+	--secondary-color-dark: #4f1f00;
+	--secondary-color-darker: #331400;
+
+	/* Neutral Colors */
+	--neutral-light: var(--mainGrey);
+	--neutral-light2: #ededed;
+	--neutral-light3: #e5e5e5;
+	--neutral-medium: #cccccc;
+	--neutral-dark: var(--darkGrey);
+	--neutral-dark2: #3f3f3f;
+	--neutral-darker: var(--mainBlack);
+
+	/* Accent Colors */
+	--accent-color-1: var(--orangeLight);
+	--accent-color-1-light: #fff2e6;
+	--accent-color-1-dark: #ccb5a3;
+	--accent-color-2: var(--mainWhite);
+	--accent-color-2-light: #fafafa;
+	--accent-color-2-dark: #e6e6e6;
+	--accent-color-3: #30465d;
+	--accent-color-3-light: #4e6b85;
+	--accent-color-3-dark: #1c2c3d;
+
+	/* Text Colors */
+	--text-color-primary: var(--mainBlack);
+	--text-color-secondary: var(--darkGrey);
+	--text-color-light: var(--mainWhite);
+	--text-color-dark: var(--primaryBlueDarker);
+
+	/* Background Colors */
+	--background-light: var(--mainGrey);
+	--background-dark: var(--primaryBlueDarker);
+	--background-accent: var(--orangeLight);
+
+	/* Button Colors */
+	--button-bg-primary: var(--primaryBlue);
+	--button-bg-primary-light: #2a5070;
+	--button-bg-secondary: var(--orangeDark);
+	--button-font-color: var(--mainWhite);
+
+	/* Border Colors */
+	--border-color-light: #e0e0e0;
+	--border-color-dark: var(--primaryBlueDarker);
+
+	/* Shadows */
+	--box-shadow-light: 0 2px 4px rgba(0, 0, 0, 0.1);
+	--box-shadow-dark: 0 2px 4px rgba(0, 0, 0, 0.3);
+
+	/* Transitions */
+	--main-transition: all 0.3s ease-in-out;
+	--main-spacing: 0.3rem;
+
+	/* Admin Messages */
+	--admin-message-bg: #f0f9ff;
+	--admin-message-color: #004085;
+	--user-message-bg: #e8f5e9;
+	--user-message-color: #1b5e20;
+}
+
+::placeholder {
+	font-style: italic;
+	font-size: 0.75rem;
+	font-weight: bold;
+	color: #d3d3d3 !important;
+}
+
+.DarkbackgroundForSidebar {
+	background-color: rgba(0, 0, 0, 0.3);
+	height: 100%;
+	top: 0px;
+	left: 0;
+	position: fixed;
+	z-index: 100;
+	padding: 1200px;
+}
+
+.DarkbackgroundForSidebar2 {
+	background-color: rgba(0, 0, 0, 0.3);
+	height: 100%;
+	top: 0px;
+	left: 0;
+	position: fixed;
+	z-index: 100;
+	padding: 1200px;
+}
+
+.arabicFonts {
+	font-family: "Droid Arabic Kufi";
+}
+
+@media (max-width: 480px) {
+	.ant-calendar-range {
+		width: 320px !important;
+	}
+	.ant-calendar-range-part {
+		width: 100% !important;
+	}
+}
+
+@keyframes blink {
+	0% {
+		opacity: 1; /* Fully visible at the start */
+	}
+	50% {
+		opacity: 0; /* Completely invisible at halfway */
+	}
+	100% {
+		opacity: 1; /* Fully visible at the end */
+	}
 }
