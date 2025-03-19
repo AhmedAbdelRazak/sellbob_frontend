@@ -12,7 +12,7 @@ app.get("*", function (req, res) {
 
 app.use(express.static(__dirname + "/public"));
 
-const PORT = process.env.PORT || 3102;
+const PORT = process.env.PORT || 3103;
 
 app.listen(PORT, () => {
 	console.log(`App is running on port ${PORT}`);
