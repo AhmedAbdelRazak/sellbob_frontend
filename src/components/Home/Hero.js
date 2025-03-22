@@ -76,17 +76,20 @@ const HeroSection = styled.section`
 	@media (max-width: 768px) {
 		width: 100%;
 		height: auto;
-		/* Force a 1:1 aspect ratio on small screens if you want the slide to be a square. 
-       Alternatively, if you want it *truly* full screen on mobile, you could do height: 100vh. */
-		aspect-ratio: 1/1;
+		/* If you want a 1:1 aspect ratio on small screens, uncomment this:
+       aspect-ratio: 1/1;
+    */
 	}
 `;
 
 const SliderContainer = styled.div`
 	width: 100%;
 	height: 100%;
+	position: relative; /* crucial for absolutely positioned arrows */
 
-	/* Some slick classes for customizing dots/arrows */
+	/* --------------------------------------------
+    Some slick classes for customizing dots/arrows
+  --------------------------------------------- */
 	.slick-slider {
 		width: 100%;
 		height: 100%;
@@ -96,38 +99,79 @@ const SliderContainer = styled.div`
 		bottom: 10px;
 	}
 
+	/* 
+    ================
+    Slick Arrows
+    ================
+    By default, slick might position them outside the container or
+    add negative margins. We'll manually position them so they do
+    not create horizontal overflow.
+  */
 	.slick-prev,
 	.slick-next {
-		z-index: 2; /* ensure arrows overlay the images */
+		top: 50%;
+		transform: translateY(-50%);
+		width: 40px;
+		height: 40px;
+		z-index: 10; /* Ensure arrows are over slides */
 		background: var(--primaryBlueDarker);
-		padding: 1px;
-		border-radius: 3px;
+		color: #fff; /* We'll rely on the pseudo-element for the arrow glyph, so set color here. */
+		border-radius: 4px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		opacity: 0.8;
+		transition: opacity 0.3s ease;
+		cursor: pointer;
+	}
+
+	.slick-prev:hover,
+	.slick-next:hover {
+		opacity: 1;
+	}
+
+	/* Use left & right so they don't cause overflow. 
+     Adjust the px as you prefer for spacing. */
+	.slick-prev {
+		left: 10px;
+	}
+
+	.slick-next {
+		right: 10px;
+	}
+
+	/*
+    Slick arrows are actually generated via the ::before pseudo-element. 
+    Change its font-size, color, etc. as needed:
+  */
+	.slick-prev:before,
+	.slick-next:before {
+		font-family: "slick";
+		font-size: 20px;
+		line-height: 1;
+		opacity: 1;
+		color: #fff; /* arrow icon color */
 	}
 `;
 
-/**
- * Individual Slide
- * - Fill the parent’s height
- * - Position relative so we can absolutely position content
- */
 const Slide = styled.div`
 	position: relative;
 	width: 100%;
 	height: 100%;
 
 	@media (max-width: 768px) {
-		aspect-ratio: 1/1;
+		/* If you need a fixed aspect ratio on small screens, uncomment:
+       aspect-ratio: 1/1;
+    */
 	}
 `;
 
-/** The actual banner image */
 const BannerImage = styled.img`
 	width: 100%;
 	height: 100%;
-	object-fit: cover; /* keep the image cropped nicely */
+	object-fit: cover;
 `;
 
-/** If no URL is provided, just show a gray placeholder */
 const Placeholder = styled.div`
 	background-color: #ccc;
 	width: 100%;
@@ -140,8 +184,11 @@ const BannerContent = styled.div`
 	left: 10%;
 	transform: translateY(-50%);
 	color: #fff;
-	max-width: 40%;
-	/* Adjust as needed for text layout */
+	max-width: 60%;
+	background-color: rgba(0, 0, 0, 0.3);
+	padding: 15px 20px;
+	border-radius: 8px;
+	text-align: center;
 
 	h2 {
 		font-size: 3rem;
@@ -169,6 +216,7 @@ const BannerContent = styled.div`
 
 	@media (max-width: 992px) {
 		max-width: 60%;
+
 		h2 {
 			font-size: 2rem;
 		}
@@ -181,6 +229,11 @@ const BannerContent = styled.div`
 		top: 45%;
 		left: 5%;
 		max-width: 90%;
+		background-color: rgba(0, 0, 0, 0.5);
+		padding: 11px 10px;
+		border-radius: 8px;
+		text-align: center;
+
 		h2 {
 			font-size: 1.5rem;
 		}

@@ -10,14 +10,16 @@ import {
 	message,
 	Row,
 	Col,
+	Tooltip,
 } from "antd";
 import { GoogleMap, Marker, LoadScript } from "@react-google-maps/api";
 import { useLocation, useHistory } from "react-router-dom";
+import { InfoCircleOutlined } from "@ant-design/icons";
 
 import { isAuthenticated } from "../../auth";
 import { createNewProperty } from "../apiAgent";
 import ImageCardMain from "./ImageCardMain";
-// IMPORTANT: Make sure your path/filename is correct here:
+// Make sure your path/filename is correct here:
 import { indianStatesArray } from "../utils";
 
 const { TextArea } = Input;
@@ -106,15 +108,28 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 		useState("");
 	const [propertyState, setPropertyState] = useState("");
 	const [propertyCity, setPropertyCity] = useState("");
-	const [otherCityName, setOtherCityName] = useState(""); // For when user picks "Other"
+	const [otherCityName, setOtherCityName] = useState("");
 	const [propertyAddress, setPropertyAddress] = useState("");
 	const [phone, setPhone] = useState("");
 	const [propertyFloors, setPropertyFloors] = useState(1);
 	const [overallRoomsCount, setOverallRoomsCount] = useState(1);
+
+	// New: bathrooms
+	const [bathRoomsCount, setBathRoomsCount] = useState(1);
+
+	// New: propertySize as an object
+	const [propertySizeObj, setPropertySizeObj] = useState({
+		size: 0,
+		unit: "square meter",
+	});
+
 	const [propertyTypeVal, setPropertyTypeVal] = useState("apartment");
 	const [propertyStatus, setPropertyStatus] = useState("sale");
+
+	// --- Price & Fees
 	const [propertyPrice, setPropertyPrice] = useState(0);
 	const [propertyExtraFees, setPropertyExtraFees] = useState(0);
+
 	const [aboutProperty, setAboutProperty] = useState("");
 	const [aboutPropertyOtherLang, setAboutPropertyOtherLang] = useState("");
 
@@ -159,7 +174,6 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 	/* ----------------------------------
      ON LOAD: PREP STATE DROPDOWN OPTIONS
   ---------------------------------- */
-	// We can pre-build a states dropdown from `indianStatesArray`.
 	const stateOptions = indianStatesArray.map((st) => ({
 		label: st.name,
 		value: st.name,
@@ -169,8 +183,8 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 	const [cityOptions, setCityOptions] = useState([]);
 
 	// Whenever the user selects a different state, we:
-	// 1) Auto-set marker lat/lng to that state's coordinates
-	// 2) Build a city dropdown from that state's `majorCities` plus "Other"
+	//  1) Auto‐set marker lat/lng to that state's coordinates
+	//  2) Build a city dropdown from that state's `majorCities` plus "Other"
 	useEffect(() => {
 		if (!propertyState) {
 			setCityOptions([]);
@@ -190,11 +204,11 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 				lng: cityObj.longitude,
 			}));
 
-			// add an "Other" entry at the end
+			// add an "Other" entry
 			transformed.push({ label: "Other", value: "other" });
-
 			setCityOptions(transformed);
-			// Reset city in case it was set previously from a different state
+
+			// reset city in case it was previously set
 			setPropertyCity("");
 			setOtherCityName("");
 		} else {
@@ -202,9 +216,9 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 		}
 	}, [propertyState]);
 
-	// If user picks a city from the dropdown, auto-update lat/lng if not "Other"
+	// If user picks a city from the dropdown, auto‐update lat/lng if not "Other"
 	useEffect(() => {
-		if (!propertyCity || propertyCity === "other") return; // skip "other"
+		if (!propertyCity || propertyCity === "other") return;
 		const chosenCity = cityOptions.find((c) => c.value === propertyCity);
 		if (chosenCity) {
 			setMarkerLat(chosenCity.lat);
@@ -222,12 +236,14 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 	};
 
 	const openLocationModal = () => setLocationModalVisible(true);
+
 	const handleMapClick = (e) => {
 		const lat = e.latLng.lat();
 		const lng = e.latLng.lng();
 		setMarkerLat(lat);
 		setMarkerLng(lng);
 	};
+
 	const handleLocationModalOk = () => setLocationModalVisible(false);
 	const handleLocationModalCancel = () => setLocationModalVisible(false);
 
@@ -318,7 +334,8 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 		if (!propertyCity.trim()) {
 			return message.error("Please select a city or 'Other'.");
 		}
-		// If city = 'other', ensure the user has typed a city name
+
+		// If city = 'other', ensure the user typed a city name
 		let finalCity = propertyCity;
 		if (propertyCity === "other") {
 			if (!otherCityName.trim()) {
@@ -339,14 +356,16 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 			propertyName,
 			propertyName_OtherLanguage,
 			propertyState,
-			propertyCity: finalCity, // either from dropdown or user input
+			propertyCity: finalCity,
 			propertyAddress,
 			phone,
 			propertyFloors,
 			overallRoomsCount,
+			bathRoomsCount,
+			propertySize: propertySizeObj,
 			propertyType: propertyTypeVal,
 			propertyStatus,
-			propertyPrice,
+			propertyPrice, // numeric
 			propertyExtraFees: propertyExtraFees || 0,
 			aboutProperty,
 			aboutPropertyOtherLanguange: aboutPropertyOtherLang,
@@ -414,6 +433,8 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 		setPhone("");
 		setPropertyFloors(1);
 		setOverallRoomsCount(1);
+		setBathRoomsCount(1);
+		setPropertySizeObj({ size: 0, unit: "square meter" });
 		setPropertyTypeVal("apartment");
 		setPropertyStatus("sale");
 		setPropertyPrice(0);
@@ -482,22 +503,28 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					<Col span={12}>
 						<label style={{ display: "block" }}>
 							Property Name (English)
+							<Tooltip title='Adding a catchy name to your property, e.g. "Amazing Duplex in Mumbai"'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
 							<span style={{ color: "red", marginLeft: 4 }}>*</span>
 						</label>
 						<Input
 							value={propertyName}
 							onChange={(e) => setPropertyName(e.target.value)}
-							placeholder='Beach House'
+							placeholder='e.g. Beach House'
 						/>
 					</Col>
 					<Col span={12}>
 						<label style={{ display: "block" }}>
-							Property Name (Other Language)
+							Property Name (Hindi)
+							<Tooltip title='If you prefer to also name the property in Hindi'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
 						</label>
 						<Input
 							value={propertyName_OtherLanguage}
 							onChange={(e) => setPropertyName_OtherLanguage(e.target.value)}
-							placeholder='Any other language'
+							placeholder='e.g. अद्भुत डुप्लेक्स'
 						/>
 					</Col>
 				</Row>
@@ -506,7 +533,11 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					{/* State SELECT */}
 					<Col span={8}>
 						<label style={{ display: "block" }}>
-							State<span style={{ color: "red", marginLeft: 4 }}>*</span>
+							State
+							<Tooltip title='Select the Indian state where the property is located'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
+							<span style={{ color: "red", marginLeft: 4 }}>*</span>
 						</label>
 						<Select
 							style={{ width: "100%" }}
@@ -523,7 +554,11 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					{/* City SELECT + "Other" */}
 					<Col span={8}>
 						<label style={{ display: "block" }}>
-							City<span style={{ color: "red", marginLeft: 4 }}>*</span>
+							City
+							<Tooltip title='Pick one of the major cities or choose "Other" to type in manually'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
+							<span style={{ color: "red", marginLeft: 4 }}>*</span>
 						</label>
 						<Select
 							style={{ width: "100%" }}
@@ -551,7 +586,11 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 
 					<Col span={8}>
 						<label style={{ display: "block" }}>
-							Phone<span style={{ color: "red", marginLeft: 4 }}>*</span>
+							Phone
+							<Tooltip title='Contact phone number for potential buyers/tenants'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
+							<span style={{ color: "red", marginLeft: 4 }}>*</span>
 						</label>
 						<Input
 							value={phone}
@@ -565,6 +604,9 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					<Col span={8}>
 						<label style={{ display: "block" }}>
 							Property Floors
+							<Tooltip title='How many floors in the main property? e.g. if the whole building has 8 floors, then add 8 here.'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
 							<span style={{ color: "red", marginLeft: 4 }}>*</span>
 						</label>
 						<InputNumber
@@ -577,7 +619,10 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					</Col>
 					<Col span={8}>
 						<label style={{ display: "block" }}>
-							Overall Rooms Count
+							Bedrooms Count
+							<Tooltip title='How many bedrooms does this house or apartment have?'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
 							<span style={{ color: "red", marginLeft: 4 }}>*</span>
 						</label>
 						<InputNumber
@@ -589,7 +634,12 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 						/>
 					</Col>
 					<Col span={8}>
-						<label style={{ display: "block" }}>Property Address</label>
+						<label style={{ display: "block" }}>
+							Property Address
+							<Tooltip title='Street address or landmark description if available'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
+						</label>
 						<Input
 							value={propertyAddress}
 							onChange={(e) => setPropertyAddress(e.target.value)}
@@ -598,11 +648,51 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					</Col>
 				</Row>
 
+				{/* Bathrooms & Property Size */}
+				<Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+					<Col span={8}>
+						<label style={{ display: "block" }}>
+							Bathrooms Count
+							<Tooltip title='How many bathrooms does the house/ apartment have?'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
+						</label>
+						<InputNumber
+							min={1}
+							max={100}
+							style={{ width: "100%" }}
+							value={bathRoomsCount}
+							onChange={(val) => setBathRoomsCount(val)}
+						/>
+					</Col>
+
+					<Col span={8}>
+						<label style={{ display: "block" }}>
+							Property Size (square meter)
+							<Tooltip title='Total size of the property in square meter'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
+						</label>
+						<InputNumber
+							min={0}
+							style={{ width: "100%" }}
+							value={propertySizeObj.size}
+							onChange={(val) =>
+								setPropertySizeObj((prev) => ({ ...prev, size: val }))
+							}
+						/>
+					</Col>
+				</Row>
+
 				{/* TYPE / STATUS / PRICE */}
 				<Row gutter={[16, 16]} style={{ marginTop: 16 }}>
 					<Col span={8}>
 						<label style={{ display: "block" }}>
-							Property Type<span style={{ color: "red" }}>*</span>
+							Property Type
+							<Tooltip title='Select the category of the property, e.g. Apartment, House, etc.'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
+							<span style={{ color: "red" }}>*</span>
 						</label>
 						<Select
 							style={{ width: "100%" }}
@@ -613,7 +703,11 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					</Col>
 					<Col span={8}>
 						<label style={{ display: "block" }}>
-							Property Status<span style={{ color: "red" }}>*</span>
+							Property Status
+							<Tooltip title='Is this property for sale or for rent?'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
+							<span style={{ color: "red" }}>*</span>
 						</label>
 						<Select
 							style={{ width: "100%" }}
@@ -625,20 +719,46 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					<Col span={8}>
 						<label style={{ display: "block" }}>
 							{propertyStatus === "rent" ? "Monthly Rent" : "Sale Price"}
+							<Tooltip
+								title={
+									propertyStatus === "rent"
+										? "Enter monthly rent cost in RUPEE"
+										: "Enter the total sale price in RUPEE"
+								}
+							>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
 							<span style={{ color: "red" }}>*</span>
 						</label>
+						{/* 
+              Using formatter & parser to display comma separators 
+              while still storing numeric state
+            */}
 						<InputNumber
 							min={0}
 							style={{ width: "100%" }}
 							value={propertyPrice}
 							onChange={(val) => setPropertyPrice(val)}
+							formatter={(value) =>
+								value
+									? value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+									: ""
+							}
+							parser={(value) =>
+								value ? parseFloat(value.replace(/[^\d.]/g, "")) || 0 : 0
+							}
 						/>
 					</Col>
 				</Row>
 
 				<Row gutter={[16, 16]} style={{ marginTop: 16 }}>
 					<Col span={8}>
-						<label style={{ display: "block" }}>Monthly Extra Fees</label>
+						<label style={{ display: "block" }}>
+							Monthly Extra Fees
+							<Tooltip title='Additional monthly charges, e.g. maintenance fees'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
+						</label>
 						<InputNumber
 							min={0}
 							style={{ width: "100%" }}
@@ -653,6 +773,9 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					<Col span={12}>
 						<label style={{ display: "block" }}>
 							About Property (English)
+							<Tooltip title='Description about your property in English, e.g. "This is a lovely place."'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
 							<span style={{ color: "red" }}>*</span>
 						</label>
 						<TextArea
@@ -663,7 +786,10 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					</Col>
 					<Col span={12}>
 						<label style={{ display: "block" }}>
-							About Property (Other Language)
+							About Property (Hindi)
+							<Tooltip title='Description about your property in Hindi'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
 						</label>
 						<TextArea
 							rows={3}
@@ -676,7 +802,12 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 				{/* AMENITIES & VIEWS */}
 				<Row gutter={[16, 16]} style={{ marginTop: 16 }}>
 					<Col span={12}>
-						<label style={{ display: "block" }}>Property Amenities</label>
+						<label style={{ display: "block" }}>
+							Property Amenities
+							<Tooltip title='Select any features available in your property (parking, elevator, gym, etc.)'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
+						</label>
 						<Select
 							mode='multiple'
 							allowClear
@@ -692,7 +823,12 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 						</Select>
 					</Col>
 					<Col span={12}>
-						<label style={{ display: "block" }}>Property Views</label>
+						<label style={{ display: "block" }}>
+							Property Views
+							<Tooltip title='Select the type of scenic views available (sea view, mountain view, etc.)'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
+						</label>
 						<Select
 							mode='multiple'
 							allowClear
@@ -765,6 +901,11 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 							<Col span={8}>
 								<label style={{ display: "block" }}>
 									Room Type
+									<Tooltip title='E.g. living room, bedroom, kitchen, bathroom, etc.'>
+										<InfoCircleOutlined
+											style={{ marginLeft: 8, color: "#999" }}
+										/>
+									</Tooltip>
 									<span style={{ color: "red", marginLeft: 4 }}>*</span>
 								</label>
 								<Select
@@ -786,7 +927,13 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 							</Col>
 							<Col span={8}>
 								<label style={{ display: "block" }}>
-									Count<span style={{ color: "red", marginLeft: 4 }}>*</span>
+									Count
+									<Tooltip title='How many of this specific room?'>
+										<InfoCircleOutlined
+											style={{ marginLeft: 8, color: "#999" }}
+										/>
+									</Tooltip>
+									<span style={{ color: "red", marginLeft: 4 }}>*</span>
 								</label>
 								<InputNumber
 									min={1}
@@ -800,7 +947,14 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 								/>
 							</Col>
 							<Col span={8}>
-								<label style={{ display: "block" }}>Room Size (m²)</label>
+								<label style={{ display: "block" }}>
+									Room Size (m²)
+									<Tooltip title='Approximate size in square meters'>
+										<InfoCircleOutlined
+											style={{ marginLeft: 8, color: "#999" }}
+										/>
+									</Tooltip>
+								</label>
 								<InputNumber
 									min={1}
 									style={{ width: "100%" }}
@@ -816,7 +970,9 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 
 						<Row gutter={[16, 16]} style={{ marginTop: 10 }}>
 							<Col span={8}>
-								<label style={{ display: "block" }}>Display Name (Eng)</label>
+								<label style={{ display: "block" }}>
+									Display Name (English)
+								</label>
 								<Input
 									placeholder='e.g. Master Bedroom'
 									value={room.displayName}
@@ -828,11 +984,9 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 								/>
 							</Col>
 							<Col span={8}>
-								<label style={{ display: "block" }}>
-									Display Name (Other Lang)
-								</label>
+								<label style={{ display: "block" }}>Display Name (Hindi)</label>
 								<Input
-									placeholder='...'
+									placeholder='e.g. मास्टर बेडरूम'
 									value={room.displayName_OtherLanguage}
 									onChange={(e) => {
 										const updated = [...rooms];
@@ -845,7 +999,9 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 
 						<Row gutter={[16, 16]} style={{ marginTop: 10 }}>
 							<Col span={8}>
-								<label style={{ display: "block" }}>Description (Eng)</label>
+								<label style={{ display: "block" }}>
+									Description (English)
+								</label>
 								<TextArea
 									rows={2}
 									value={room.description}
@@ -857,9 +1013,7 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 								/>
 							</Col>
 							<Col span={8}>
-								<label style={{ display: "block" }}>
-									Description (Other Lang)
-								</label>
+								<label style={{ display: "block" }}>Description (Hindi)</label>
 								<TextArea
 									rows={2}
 									value={room.description_OtherLanguage}
@@ -874,7 +1028,14 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 
 						<Row style={{ marginTop: 10 }}>
 							<Col span={24}>
-								<label style={{ display: "block" }}>Room Photos</label>
+								<label style={{ display: "block" }}>
+									Room Photos
+									<Tooltip title='Upload photos specific to this room'>
+										<InfoCircleOutlined
+											style={{ marginLeft: 8, color: "#999" }}
+										/>
+									</Tooltip>
+								</label>
 								<ImageCardMain
 									propertyPhotos={room.photos}
 									setPropertyDetails={(prev) => {
@@ -928,7 +1089,11 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 				<Row gutter={[16, 16]}>
 					<Col span={8}>
 						<label style={{ display: "block" }}>
-							Latitude<span style={{ color: "red", marginLeft: 4 }}>*</span>
+							Latitude
+							<Tooltip title='Latitude of the property location on map'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
+							<span style={{ color: "red", marginLeft: 4 }}>*</span>
 						</label>
 						<Input
 							type='number'
@@ -939,7 +1104,11 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					</Col>
 					<Col span={8}>
 						<label style={{ display: "block" }}>
-							Longitude<span style={{ color: "red", marginLeft: 4 }}>*</span>
+							Longitude
+							<Tooltip title='Longitude of the property location on map'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
+							<span style={{ color: "red", marginLeft: 4 }}>*</span>
 						</label>
 						<Input
 							type='number'

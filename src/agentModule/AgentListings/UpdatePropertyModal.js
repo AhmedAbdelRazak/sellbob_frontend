@@ -10,14 +10,16 @@ import {
 	message,
 	Row,
 	Col,
+	Tooltip,
 } from "antd";
 import { GoogleMap, Marker, LoadScript } from "@react-google-maps/api";
+import { InfoCircleOutlined } from "@ant-design/icons";
 
 import { isAuthenticated } from "../../auth";
 import { updateProperty } from "../apiAgent";
 import ImageCardMain from "./ImageCardMain";
 
-// Make sure this path is correct for your project:
+// Ensure this path is correct in your project:
 import { indianStatesArray } from "../utils";
 
 /** Generates a local ID for new rooms (if they don't have one) */
@@ -95,17 +97,33 @@ const UpdatePropertyModal = ({
 	const [propertyName, setPropertyName] = useState("");
 	const [propertyName_OtherLanguage, setPropertyName_OtherLanguage] =
 		useState("");
+
 	const [propertyState, setPropertyState] = useState("");
 	const [propertyCity, setPropertyCity] = useState("");
 	const [otherCityName, setOtherCityName] = useState("");
 	const [propertyAddress, setPropertyAddress] = useState("");
 	const [phone, setPhone] = useState("");
+
 	const [propertyFloors, setPropertyFloors] = useState(1);
+	// We'll label it “Bedrooms Count” in the UI, but keep the same state variable:
 	const [overallRoomsCount, setOverallRoomsCount] = useState(1);
+
+	// bathrooms
+	const [bathRoomsCount, setBathRoomsCount] = useState(1);
+
+	// propertySize as an object
+	const [propertySizeObj, setPropertySizeObj] = useState({
+		size: 0,
+		unit: "square meter",
+	});
+
 	const [propertyTypeVal, setPropertyTypeVal] = useState("apartment");
 	const [propertyStatus, setPropertyStatus] = useState("sale");
+
+	// Price & Extra Fees
 	const [propertyPrice, setPropertyPrice] = useState(0);
 	const [propertyExtraFees, setPropertyExtraFees] = useState(0);
+
 	const [aboutProperty, setAboutProperty] = useState("");
 	const [aboutPropertyOtherLang, setAboutPropertyOtherLang] = useState("");
 
@@ -149,9 +167,8 @@ const UpdatePropertyModal = ({
 	// Will build city options dynamically for the selected state
 	const [cityOptions, setCityOptions] = useState([]);
 
-	/*
-    1) Effect #1: 
-       Runs whenever "property" changes. (DB data -> local states)
+	/* 
+    1) On receiving "property": populate local state 
   */
 	useEffect(() => {
 		if (!property) return;
@@ -165,29 +182,43 @@ const UpdatePropertyModal = ({
 
 		setPropertyAddress(property.propertyAddress || "");
 		setPhone(property.phone || "");
+
 		setPropertyFloors(property.propertyFloors || 1);
 		setOverallRoomsCount(property.overallRoomsCount || 1);
+		setBathRoomsCount(property.bathRoomsCount || 1);
+
+		// propertySize
+		setPropertySizeObj(
+			property.propertySize || {
+				size: 0,
+				unit: "square meter",
+			}
+		);
+
 		setPropertyTypeVal(property.propertyType || "apartment");
 		setPropertyStatus(property.propertyStatus || "sale");
+
+		// price & fees
 		setPropertyPrice(property.propertyPrice || 0);
 		setPropertyExtraFees(property.propertyExtraFees || 0);
+
 		setAboutProperty(property.aboutProperty || "");
 		setAboutPropertyOtherLang(property.aboutPropertyOtherLanguange || "");
 
-		// Arrays
+		// arrays
 		setPropertyAmenities(property.amenities || []);
 		setPropertyViews(property.views || []);
 		setCloseAreas(property.closeAreas || []);
 		setPropertyPhotos(property.propertyPhotos || []);
 
-		// Rooms
+		// rooms
 		if (Array.isArray(property.roomCountDetails)) {
 			const normalizedRooms = property.roomCountDetails.map((r) =>
 				r._id ? r : { ...r, _id: generateLocalId() }
 			);
 			setRooms(normalizedRooms);
 		} else {
-			// Fallback if no rooms
+			// fallback if no rooms
 			setRooms([
 				{
 					_id: generateLocalId(),
@@ -203,7 +234,7 @@ const UpdatePropertyModal = ({
 			]);
 		}
 
-		// MAP location
+		// map location
 		if (
 			property.location &&
 			property.location.coordinates &&
@@ -216,18 +247,11 @@ const UpdatePropertyModal = ({
 			setMarkerLng(INDIA_COORDS.lng);
 		}
 
-		// Mark that we have loaded from DB -> next effect can do "initial matching"
 		setIsInitialLoad(true);
 	}, [property]);
 
-	/*
-    2) Effect #2:
-       Runs whenever propertyState changes or isInitialLoad changes 
-       (but NOT propertyCity).
-       - Builds city options from the chosen state
-       - If user picks a new state (not initial load), reset city
-       - If it *is* initial load, attempt to match city from DB
-         => set propertyCity to "Other" if not matched
+	/* 
+    2) Build city list from propertyState 
   */
 	useEffect(() => {
 		if (!propertyState) {
@@ -237,19 +261,17 @@ const UpdatePropertyModal = ({
 			return;
 		}
 
-		// Case-insensitive find in array
 		const foundState = indianStatesArray.find(
 			(s) => s.name.toLowerCase() === propertyState.toLowerCase()
 		);
 		if (!foundState) {
-			// Possibly user typed a custom state
 			setCityOptions([]);
 			setPropertyCity("");
 			setOtherCityName("");
 			return;
 		}
 
-		// Build city dropdown
+		// build city dropdown
 		const transformedCities = (foundState.majorCities || []).map((city) => ({
 			label: city.name,
 			value: city.name,
@@ -259,63 +281,53 @@ const UpdatePropertyModal = ({
 		transformedCities.push({ label: "Other", value: "other" });
 		setCityOptions(transformedCities);
 
-		// If the user manually changed the state => not initial load
+		// if not initial load => user changed propertyState
 		if (!isInitialLoad) {
-			// Reset city so user can pick a new city from the dropdown
 			setPropertyCity("");
 			setOtherCityName("");
-			// Move marker to state center
 			setMarkerLat(foundState.latitude);
 			setMarkerLng(foundState.longitude);
 			return;
 		}
 
-		// If it IS initial load => do the city matching
+		// initial load => attempt to match city
 		setMarkerLat(foundState.latitude);
 		setMarkerLng(foundState.longitude);
 
 		if (propertyCity) {
-			// case-insensitive match
 			const match = transformedCities.find(
 				(c) => c.value.toLowerCase() === propertyCity.toLowerCase()
 			);
 			if (match) {
-				// found a city => adopt official name, set lat/lng
 				setPropertyCity(match.value);
 				setMarkerLat(match.lat);
 				setMarkerLng(match.lng);
 			} else {
-				// city not found => "Other"
+				// user typed city that isn't in majorCities => "other"
 				setPropertyCity("other");
 				setOtherCityName(propertyCity);
 			}
 		}
-
-		// Done with initial load => set false
 		setIsInitialLoad(false);
 		// eslint-disable-next-line
-	}, [propertyState, isInitialLoad]); // no propertyCity dependency
+	}, [propertyState, isInitialLoad]);
 
-	/*
-    3) Effect #3:
-       Runs whenever propertyCity changes. 
-       If city != "other", we set lat/lng to that city's coords.
+	/* 
+    3) If user picks city from dropdown 
+       => auto-set lat/lng if not "Other"
   */
 	useEffect(() => {
 		if (!propertyCity || propertyCity === "other") return;
 		const chosen = cityOptions.find(
 			(c) => c.value.toLowerCase() === propertyCity.toLowerCase()
 		);
-
 		if (chosen) {
 			setMarkerLat(chosen.lat);
 			setMarkerLng(chosen.lng);
 		}
 	}, [propertyCity, cityOptions]);
 
-	/* ---------------------------------------------
-     MAP / GEO SETUP
-  --------------------------------------------- */
+	/* MAP / GEO */
 	const handleScriptLoad = () => {
 		if (window.google && window.google.maps && !geocoderRef.current) {
 			geocoderRef.current = new window.google.maps.Geocoder();
@@ -366,9 +378,7 @@ const UpdatePropertyModal = ({
 		message.success("Manual coordinates set!");
 	};
 
-	/* ---------------------------------------------
-     CLOSE AREAS
-  --------------------------------------------- */
+	/* CLOSE AREAS */
 	const handleAddCloseArea = () => {
 		if (!singleCloseArea.trim()) {
 			return message.error("Please enter a close area");
@@ -383,9 +393,7 @@ const UpdatePropertyModal = ({
 		setCloseAreas(updated);
 	};
 
-	/* ---------------------------------------------
-     ROOMS
-  --------------------------------------------- */
+	/* ROOMS */
 	const handleAddRoom = () => {
 		setRooms((prev) => [
 			...prev,
@@ -409,9 +417,7 @@ const UpdatePropertyModal = ({
 		setRooms(updated);
 	};
 
-	/* ---------------------------------------------
-     SUBMIT => UPDATE PROPERTY
-  --------------------------------------------- */
+	/* SUBMIT => UPDATE PROPERTY */
 	const handleOk = async () => {
 		if (!property) return;
 
@@ -451,9 +457,11 @@ const UpdatePropertyModal = ({
 			phone,
 			propertyFloors,
 			overallRoomsCount,
+			bathRoomsCount,
+			propertySize: propertySizeObj,
 			propertyType: propertyTypeVal,
 			propertyStatus,
-			propertyPrice,
+			propertyPrice, // numeric
 			propertyExtraFees: propertyExtraFees || 0,
 			aboutProperty,
 			aboutPropertyOtherLanguange: aboutPropertyOtherLang,
@@ -482,8 +490,10 @@ const UpdatePropertyModal = ({
 		setServerError("");
 
 		try {
+			// If belongsTo is user obj or just ID:
 			const belongsToId =
 				property.belongsTo?._id || property.belongsTo || user._id;
+
 			const resp = await updateProperty(
 				property._id,
 				belongsToId,
@@ -553,7 +563,10 @@ const UpdatePropertyModal = ({
 				<Col span={12}>
 					<label style={{ display: "block" }}>
 						Property Name (English)
-						<span style={{ color: "red" }}>*</span>
+						<Tooltip title='Adding a catchy name to your property, e.g. "Amazing Duplex in Mumbai"'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
+						<span style={{ color: "red", marginLeft: 4 }}>*</span>
 					</label>
 					<Input
 						value={propertyName}
@@ -563,11 +576,15 @@ const UpdatePropertyModal = ({
 				</Col>
 				<Col span={12}>
 					<label style={{ display: "block" }}>
-						Property Name (Other Language)
+						Property Name (Hindi)
+						<Tooltip title='If you prefer to also name the property in Hindi'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
 					</label>
 					<Input
 						value={propertyName_OtherLanguage}
 						onChange={(e) => setPropertyName_OtherLanguage(e.target.value)}
+						placeholder='e.g. अद्भुत डुप्लेक्स'
 					/>
 				</Col>
 			</Row>
@@ -576,7 +593,11 @@ const UpdatePropertyModal = ({
 				{/* STATE SELECT */}
 				<Col span={8}>
 					<label style={{ display: "block" }}>
-						State<span style={{ color: "red" }}>*</span>
+						State
+						<Tooltip title='Select the Indian state where the property is located'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
+						<span style={{ color: "red", marginLeft: 4 }}>*</span>
 					</label>
 					<Select
 						style={{ width: "100%" }}
@@ -590,10 +611,14 @@ const UpdatePropertyModal = ({
 					/>
 				</Col>
 
-				{/* CITY SELECT */}
+				{/* CITY SELECT + OTHER */}
 				<Col span={8}>
 					<label style={{ display: "block" }}>
-						City<span style={{ color: "red" }}>*</span>
+						City
+						<Tooltip title='Pick one of the major cities or choose "Other" to type in manually'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
+						<span style={{ color: "red", marginLeft: 4 }}>*</span>
 					</label>
 					<Select
 						style={{ width: "100%" }}
@@ -618,7 +643,11 @@ const UpdatePropertyModal = ({
 
 				<Col span={8}>
 					<label style={{ display: "block" }}>
-						Phone<span style={{ color: "red" }}>*</span>
+						Phone
+						<Tooltip title='Contact phone number for potential buyers/tenants'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
+						<span style={{ color: "red", marginLeft: 4 }}>*</span>
 					</label>
 					<Input
 						value={phone}
@@ -631,7 +660,11 @@ const UpdatePropertyModal = ({
 			<Row gutter={[16, 16]} style={{ marginTop: 16 }}>
 				<Col span={8}>
 					<label style={{ display: "block" }}>
-						Property Floors<span style={{ color: "red" }}>*</span>
+						Property Floors
+						<Tooltip title='How many floors in the main property? e.g. if the whole building has 8 floors, then add 8 here.'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
+						<span style={{ color: "red", marginLeft: 4 }}>*</span>
 					</label>
 					<InputNumber
 						min={1}
@@ -643,7 +676,11 @@ const UpdatePropertyModal = ({
 				</Col>
 				<Col span={8}>
 					<label style={{ display: "block" }}>
-						Overall Rooms Count<span style={{ color: "red" }}>*</span>
+						Bedrooms Count
+						<Tooltip title='How many bedrooms does this house or apartment have?'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
+						<span style={{ color: "red", marginLeft: 4 }}>*</span>
 					</label>
 					<InputNumber
 						min={1}
@@ -654,7 +691,12 @@ const UpdatePropertyModal = ({
 					/>
 				</Col>
 				<Col span={8}>
-					<label style={{ display: "block" }}>Property Address</label>
+					<label style={{ display: "block" }}>
+						Property Address
+						<Tooltip title='Street address or landmark description if available'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
+					</label>
 					<Input
 						value={propertyAddress}
 						onChange={(e) => setPropertyAddress(e.target.value)}
@@ -663,11 +705,50 @@ const UpdatePropertyModal = ({
 				</Col>
 			</Row>
 
-			{/* TYPE / STATUS / PRICE */}
+			{/* BATHROOM & SIZE */}
 			<Row gutter={[16, 16]} style={{ marginTop: 16 }}>
 				<Col span={8}>
 					<label style={{ display: "block" }}>
-						Property Type<span style={{ color: "red" }}>*</span>
+						Bathrooms Count
+						<Tooltip title='How many bathrooms does the house/apartment have?'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
+					</label>
+					<InputNumber
+						min={1}
+						max={100}
+						style={{ width: "100%" }}
+						value={bathRoomsCount}
+						onChange={(val) => setBathRoomsCount(val)}
+					/>
+				</Col>
+				<Col span={8}>
+					<label style={{ display: "block" }}>
+						Property Size (square meter)
+						<Tooltip title='Total size of the property in square meter'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
+					</label>
+					<InputNumber
+						min={0}
+						style={{ width: "100%" }}
+						value={propertySizeObj.size}
+						onChange={(val) =>
+							setPropertySizeObj((prev) => ({ ...prev, size: val }))
+						}
+					/>
+				</Col>
+			</Row>
+
+			{/* TYPE/STATUS/PRICE */}
+			<Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+				<Col span={8}>
+					<label style={{ display: "block" }}>
+						Property Type
+						<Tooltip title='Select the category of the property, e.g. Apartment, House, etc.'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
+						<span style={{ color: "red" }}>*</span>
 					</label>
 					<Select
 						style={{ width: "100%" }}
@@ -678,7 +759,11 @@ const UpdatePropertyModal = ({
 				</Col>
 				<Col span={8}>
 					<label style={{ display: "block" }}>
-						Property Status<span style={{ color: "red" }}>*</span>
+						Property Status
+						<Tooltip title='Is this property for sale or for rent?'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
+						<span style={{ color: "red" }}>*</span>
 					</label>
 					<Select
 						style={{ width: "100%" }}
@@ -690,20 +775,46 @@ const UpdatePropertyModal = ({
 				<Col span={8}>
 					<label style={{ display: "block" }}>
 						{propertyStatus === "rent" ? "Monthly Rent" : "Sale Price"}
+						<Tooltip
+							title={
+								propertyStatus === "rent"
+									? "Enter monthly rent cost"
+									: "Enter the total sale price in RUPEE"
+							}
+						>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
 						<span style={{ color: "red" }}>*</span>
 					</label>
+					{/* 
+            Use formatter & parser for comma separators 
+            while the underlying state remains numeric
+          */}
 					<InputNumber
 						min={0}
 						style={{ width: "100%" }}
 						value={propertyPrice}
 						onChange={(val) => setPropertyPrice(val)}
+						formatter={(value) =>
+							value
+								? value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+								: ""
+						}
+						parser={(value) =>
+							value ? parseFloat(value.replace(/[^\d.]/g, "")) || 0 : 0
+						}
 					/>
 				</Col>
 			</Row>
 
 			<Row gutter={[16, 16]} style={{ marginTop: 16 }}>
 				<Col span={8}>
-					<label style={{ display: "block" }}>Monthly Extra Fees</label>
+					<label style={{ display: "block" }}>
+						Monthly Extra Fees
+						<Tooltip title='Additional monthly charges, e.g. maintenance fees'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
+					</label>
 					<InputNumber
 						min={0}
 						style={{ width: "100%" }}
@@ -718,6 +829,9 @@ const UpdatePropertyModal = ({
 				<Col span={12}>
 					<label style={{ display: "block" }}>
 						About Property (English)
+						<Tooltip title='Description about your property in English, e.g. "This is a lovely place."'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
 						<span style={{ color: "red" }}>*</span>
 					</label>
 					<TextArea
@@ -728,7 +842,10 @@ const UpdatePropertyModal = ({
 				</Col>
 				<Col span={12}>
 					<label style={{ display: "block" }}>
-						About Property (Other Language)
+						About Property (Hindi)
+						<Tooltip title='Description about your property in Hindi'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
 					</label>
 					<TextArea
 						rows={3}
@@ -741,7 +858,12 @@ const UpdatePropertyModal = ({
 			{/* AMENITIES & VIEWS */}
 			<Row gutter={[16, 16]} style={{ marginTop: 16 }}>
 				<Col span={12}>
-					<label style={{ display: "block" }}>Property Amenities</label>
+					<label style={{ display: "block" }}>
+						Property Amenities
+						<Tooltip title='Select any features available in your property (parking, elevator, gym, etc.)'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
+					</label>
 					<Select
 						mode='multiple'
 						allowClear
@@ -757,7 +879,12 @@ const UpdatePropertyModal = ({
 					</Select>
 				</Col>
 				<Col span={12}>
-					<label style={{ display: "block" }}>Property Views</label>
+					<label style={{ display: "block" }}>
+						Property Views
+						<Tooltip title='Select the type of scenic views available (sea view, mountain view, etc.)'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
+					</label>
 					<Select
 						mode='multiple'
 						allowClear
@@ -829,7 +956,13 @@ const UpdatePropertyModal = ({
 					<Row gutter={[16, 16]}>
 						<Col span={8}>
 							<label style={{ display: "block" }}>
-								Room Type<span style={{ color: "red" }}>*</span>
+								Room Type
+								<Tooltip title='E.g. living room, bedroom, kitchen, bathroom, etc.'>
+									<InfoCircleOutlined
+										style={{ marginLeft: 8, color: "#999" }}
+									/>
+								</Tooltip>
+								<span style={{ color: "red", marginLeft: 4 }}>*</span>
 							</label>
 							<Select
 								style={{ width: "100%" }}
@@ -852,7 +985,13 @@ const UpdatePropertyModal = ({
 						</Col>
 						<Col span={8}>
 							<label style={{ display: "block" }}>
-								Count<span style={{ color: "red" }}>*</span>
+								Count
+								<Tooltip title='How many of this specific room?'>
+									<InfoCircleOutlined
+										style={{ marginLeft: 8, color: "#999" }}
+									/>
+								</Tooltip>
+								<span style={{ color: "red", marginLeft: 4 }}>*</span>
 							</label>
 							<InputNumber
 								min={1}
@@ -868,7 +1007,14 @@ const UpdatePropertyModal = ({
 							/>
 						</Col>
 						<Col span={8}>
-							<label style={{ display: "block" }}>Room Size (m²)</label>
+							<label style={{ display: "block" }}>
+								Room Size (m²)
+								<Tooltip title='Approximate size in square meters'>
+									<InfoCircleOutlined
+										style={{ marginLeft: 8, color: "#999" }}
+									/>
+								</Tooltip>
+							</label>
 							<InputNumber
 								min={1}
 								style={{ width: "100%" }}
@@ -886,7 +1032,7 @@ const UpdatePropertyModal = ({
 
 					<Row gutter={[16, 16]} style={{ marginTop: 10 }}>
 						<Col span={8}>
-							<label style={{ display: "block" }}>Display Name (Eng)</label>
+							<label style={{ display: "block" }}>Display Name (English)</label>
 							<Input
 								placeholder='e.g. Master Bedroom'
 								value={room.displayName}
@@ -901,11 +1047,9 @@ const UpdatePropertyModal = ({
 							/>
 						</Col>
 						<Col span={8}>
-							<label style={{ display: "block" }}>
-								Display Name (Other Lang)
-							</label>
+							<label style={{ display: "block" }}>Display Name (Hindi)</label>
 							<Input
-								placeholder='...'
+								placeholder='e.g. मास्टर बेडरूम'
 								value={room.displayName_OtherLanguage}
 								onChange={(e) => {
 									const val = e.target.value;
@@ -924,7 +1068,7 @@ const UpdatePropertyModal = ({
 
 					<Row gutter={[16, 16]} style={{ marginTop: 10 }}>
 						<Col span={8}>
-							<label style={{ display: "block" }}>Description (Eng)</label>
+							<label style={{ display: "block" }}>Description (English)</label>
 							<TextArea
 								rows={2}
 								value={room.description}
@@ -939,9 +1083,7 @@ const UpdatePropertyModal = ({
 							/>
 						</Col>
 						<Col span={8}>
-							<label style={{ display: "block" }}>
-								Description (Other Lang)
-							</label>
+							<label style={{ display: "block" }}>Description (Hindi)</label>
 							<TextArea
 								rows={2}
 								value={room.description_OtherLanguage}
@@ -962,15 +1104,21 @@ const UpdatePropertyModal = ({
 
 					<Row style={{ marginTop: 10 }}>
 						<Col span={24}>
-							<label style={{ display: "block" }}>Room Photos</label>
+							<label style={{ display: "block" }}>
+								Room Photos
+								<Tooltip title='Upload photos specific to this room'>
+									<InfoCircleOutlined
+										style={{ marginLeft: 8, color: "#999" }}
+									/>
+								</Tooltip>
+							</label>
 							<ImageCardMain
 								propertyPhotos={room.photos}
-								setPropertyDetails={(prev) => {
-									// We store the new photos back into rooms[idx].photos
-									if (typeof prev === "function") {
+								setPropertyDetails={(prevFunc) => {
+									if (typeof prevFunc === "function") {
 										setRooms((oldRooms) => {
 											const updated = [...oldRooms];
-											const newVal = prev({
+											const newVal = prevFunc({
 												propertyPhotos: updated[idx].photos,
 											});
 											updated[idx].photos = newVal.propertyPhotos || [];
@@ -979,7 +1127,7 @@ const UpdatePropertyModal = ({
 									} else {
 										setRooms((oldRooms) => {
 											const updated = [...oldRooms];
-											updated[idx].photos = prev?.propertyPhotos || [];
+											updated[idx].photos = prevFunc?.propertyPhotos || [];
 											return updated;
 										});
 									}
@@ -1008,14 +1156,18 @@ const UpdatePropertyModal = ({
 				+ Add Room
 			</Button>
 
-			{/* LOCATION COORDINATES */}
+			{/* LOCATION */}
 			<SectionTitle style={{ marginTop: 24 }}>
 				Location Coordinates
 			</SectionTitle>
 			<Row gutter={[16, 16]}>
 				<Col span={8}>
 					<label style={{ display: "block" }}>
-						Latitude<span style={{ color: "red" }}>*</span>
+						Latitude
+						<Tooltip title='Latitude of the property location on map'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
+						<span style={{ color: "red", marginLeft: 4 }}>*</span>
 					</label>
 					<Input
 						type='number'
@@ -1026,7 +1178,11 @@ const UpdatePropertyModal = ({
 				</Col>
 				<Col span={8}>
 					<label style={{ display: "block" }}>
-						Longitude<span style={{ color: "red" }}>*</span>
+						Longitude
+						<Tooltip title='Longitude of the property location on map'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
+						<span style={{ color: "red", marginLeft: 4 }}>*</span>
 					</label>
 					<Input
 						type='number'

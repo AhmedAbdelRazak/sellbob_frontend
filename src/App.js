@@ -13,6 +13,9 @@ import ListYourProperty from "./pages/ListYourProperty";
 import OurProperties from "./pages/OurProperties";
 import Contact from "./pages/Contact";
 import Aboutus from "./pages/Aboutus";
+import SinglePropertyPage from "./pages/SinglePropertyPage";
+import NotFound from "./pages/NotFound";
+import Footer from "./components/Footer";
 
 //Agent Routes
 import AgentRoute from "./auth/AgentRoute";
@@ -31,10 +34,6 @@ import WebsiteMain from "./adminModule/Website/WebsiteMain";
 import CustomerServiceMain from "./adminModule/CustomerService/CustomerServiceMain";
 import OverallAppointmentsMain from "./adminModule/Appointments/OverallAppointmentsMain";
 import OverallSubscriptionsMain from "./adminModule/Subscriptions/OverallSubscriptionsMain";
-
-// NEW imports for NotFound (404) and Footer
-import NotFound from "./pages/NotFound";
-import Footer from "./components/Footer";
 
 const App = () => {
 	const location = useLocation(); // from react-router-dom
@@ -82,6 +81,12 @@ const App = () => {
 					<Route path='/about' exact component={Aboutus} />
 					<Route path='/signup' exact component={Signup} />
 					<Route path='/signin' exact component={Signin} />
+					<Route
+						path='/single-property/:state/:propertyNameSlug/:propertyId'
+						exact
+						component={SinglePropertyPage}
+					/>
+
 					<Route
 						path='/list-your-property'
 						exact
