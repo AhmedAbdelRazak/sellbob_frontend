@@ -12,17 +12,14 @@ import {
 	Col,
 	Tooltip,
 } from "antd";
-import { GoogleMap, Marker, LoadScript } from "@react-google-maps/api";
+import { GoogleMap, MarkerF, LoadScript } from "@react-google-maps/api";
 import { InfoCircleOutlined } from "@ant-design/icons";
 
 import { isAuthenticated } from "../../auth";
 import { updateProperty } from "../apiAgent";
 import ImageCardMain from "./ImageCardMain";
-
-// Ensure this path is correct in your project:
 import { indianStatesArray } from "../utils";
 
-/** Generates a local ID for new rooms (if they don't have one) */
 function generateLocalId() {
 	return "local_" + Math.random().toString(36).slice(2);
 }
@@ -93,55 +90,36 @@ const UpdatePropertyModal = ({
 }) => {
 	const { user, token } = isAuthenticated() || {};
 
-	// ---------- STATE FOR FORM FIELDS ----------
+	// ---------- FORM FIELDS ----------
 	const [propertyName, setPropertyName] = useState("");
 	const [propertyName_OtherLanguage, setPropertyName_OtherLanguage] =
 		useState("");
-
 	const [propertyState, setPropertyState] = useState("");
 	const [propertyCity, setPropertyCity] = useState("");
 	const [otherCityName, setOtherCityName] = useState("");
 	const [propertyAddress, setPropertyAddress] = useState("");
 	const [phone, setPhone] = useState("");
-
 	const [propertyFloors, setPropertyFloors] = useState(1);
-	// We'll label it “Bedrooms Count” in the UI, but keep the same state variable:
 	const [overallRoomsCount, setOverallRoomsCount] = useState(1);
-
-	// bathrooms
 	const [bathRoomsCount, setBathRoomsCount] = useState(1);
-
-	// propertySize as an object
 	const [propertySizeObj, setPropertySizeObj] = useState({
 		size: 0,
 		unit: "square meter",
 	});
-
 	const [propertyTypeVal, setPropertyTypeVal] = useState("apartment");
 	const [propertyStatus, setPropertyStatus] = useState("sale");
-
-	// Price & Extra Fees
 	const [propertyPrice, setPropertyPrice] = useState(0);
 	const [propertyExtraFees, setPropertyExtraFees] = useState(0);
-
 	const [aboutProperty, setAboutProperty] = useState("");
 	const [aboutPropertyOtherLang, setAboutPropertyOtherLang] = useState("");
-
-	// Amenities & Views
 	const [propertyAmenities, setPropertyAmenities] = useState([]);
 	const [propertyViews, setPropertyViews] = useState([]);
-
-	// Close Areas
 	const [closeAreas, setCloseAreas] = useState([]);
 	const [singleCloseArea, setSingleCloseArea] = useState("");
-
-	// Photos
 	const [propertyPhotos, setPropertyPhotos] = useState([]);
-
-	// Rooms
 	const [rooms, setRooms] = useState([]);
 
-	// MAP / LOCATION
+	// ---------- MAP FIELDS ----------
 	const [markerLat, setMarkerLat] = useState(INDIA_COORDS.lat);
 	const [markerLng, setMarkerLng] = useState(INDIA_COORDS.lng);
 	const [locationModalVisible, setLocationModalVisible] = useState(false);
@@ -151,74 +129,65 @@ const UpdatePropertyModal = ({
 	const [addressToGeocode, setAddressToGeocode] = useState("");
 	const geocoderRef = useRef(null);
 
-	// LOADING & ERROR
+	// Map center & zoom for better UX
+	// eslint-disable-next-line
+	const [mapCenter, setMapCenter] = useState(INDIA_COORDS);
+	const [mapZoom, setMapZoom] = useState(5);
+
+	// ---------- LOADING / ERROR ----------
 	const [loading, setLoading] = useState(false);
 	const [serverError, setServerError] = useState("");
 
-	// **Flag** to track if we are still loading data from DB
-	const [isInitialLoad, setIsInitialLoad] = useState(false);
+	// City dropdown
+	const [cityOptions, setCityOptions] = useState([]);
+	const [customCityOption, setCustomCityOption] = useState(null);
 
-	// We build a list of states from the array
+	// Guard to skip certain effects while populating
+	const [isFillingForm, setIsFillingForm] = useState(false);
+
+	// Build stateOptions from the array
 	const stateOptions = indianStatesArray.map((st) => ({
 		label: st.name,
 		value: st.name,
 	}));
 
-	// Will build city options dynamically for the selected state
-	const [cityOptions, setCityOptions] = useState([]);
-
-	/* 
-    1) On receiving "property": populate local state 
-  */
+	// ---------- 1) Populate from DB ----------
 	useEffect(() => {
 		if (!property) return;
+		setIsFillingForm(true);
 
-		// Basic fields
 		setPropertyName(property.propertyName || "");
 		setPropertyName_OtherLanguage(property.propertyName_OtherLanguage || "");
 		setPropertyState(property.propertyState || "");
 		setPropertyCity(property.propertyCity || "");
 		setOtherCityName("");
-
 		setPropertyAddress(property.propertyAddress || "");
 		setPhone(property.phone || "");
-
 		setPropertyFloors(property.propertyFloors || 1);
 		setOverallRoomsCount(property.overallRoomsCount || 1);
 		setBathRoomsCount(property.bathRoomsCount || 1);
 
-		// propertySize
 		setPropertySizeObj(
-			property.propertySize || {
-				size: 0,
-				unit: "square meter",
-			}
+			property.propertySize || { size: 0, unit: "square meter" }
 		);
 
 		setPropertyTypeVal(property.propertyType || "apartment");
 		setPropertyStatus(property.propertyStatus || "sale");
-
-		// price & fees
 		setPropertyPrice(property.propertyPrice || 0);
 		setPropertyExtraFees(property.propertyExtraFees || 0);
-
 		setAboutProperty(property.aboutProperty || "");
 		setAboutPropertyOtherLang(property.aboutPropertyOtherLanguange || "");
-
-		// arrays
 		setPropertyAmenities(property.amenities || []);
 		setPropertyViews(property.views || []);
 		setCloseAreas(property.closeAreas || []);
 		setPropertyPhotos(property.propertyPhotos || []);
 
-		// rooms
 		if (Array.isArray(property.roomCountDetails)) {
 			const normalizedRooms = property.roomCountDetails.map((r) =>
 				r._id ? r : { ...r, _id: generateLocalId() }
 			);
 			setRooms(normalizedRooms);
 		} else {
-			// fallback if no rooms
 			setRooms([
 				{
 					_id: generateLocalId(),
@@ -234,30 +203,70 @@ const UpdatePropertyModal = ({
 			]);
 		}
 
-		// map location
+		// Coordinates from DB
+		const coords = property.location?.coordinates;
 		if (
-			property.location &&
-			property.location.coordinates &&
-			property.location.coordinates.length === 2
+			Array.isArray(coords) &&
+			coords.length === 2 &&
+			!(coords[0] === 0 && coords[1] === 0)
 		) {
-			setMarkerLng(property.location.coordinates[0]);
-			setMarkerLat(property.location.coordinates[1]);
+			const dbLng = coords[0];
+			const dbLat = coords[1];
+			setMarkerLng(dbLng);
+			setMarkerLat(dbLat);
+			setMapCenter({ lat: dbLat, lng: dbLng });
+			setMapZoom(13);
 		} else {
-			setMarkerLat(INDIA_COORDS.lat);
 			setMarkerLng(INDIA_COORDS.lng);
+			setMarkerLat(INDIA_COORDS.lat);
+			setMapCenter(INDIA_COORDS);
+			setMapZoom(5);
 		}
 
-		setIsInitialLoad(true);
+		setIsFillingForm(false);
 	}, [property]);
 
-	/* 
-    2) Build city list from propertyState 
-  */
+	// ---------- 2) Watch propertyState => build city options ----------
 	useEffect(() => {
 		if (!propertyState) {
 			setCityOptions([]);
+			setCustomCityOption(null);
 			setPropertyCity("");
 			setOtherCityName("");
+			return;
+		}
+		if (isFillingForm) return;
+
+		const foundState = indianStatesArray.find(
+			(s) => s.name.toLowerCase() === propertyState.toLowerCase()
+		);
+		if (!foundState) {
+			setCityOptions([]);
+			setCustomCityOption(null);
+			return;
+		}
+
+		const majorCities = (foundState.majorCities || []).map((c) => ({
+			label: c.name,
+			value: c.name,
+			lat: c.latitude,
+			lng: c.longitude,
+		}));
+		majorCities.push({ label: "Other", value: "other" });
+		setCityOptions(majorCities);
+		setCustomCityOption(null);
+	}, [propertyState, isFillingForm]);
+
+	// ---------- 3) After city from DB, check recognized or custom ----------
+	useEffect(() => {
+		if (!property || !propertyState) return;
+		if (isFillingForm) return;
+
+		setIsFillingForm(true);
+
+		const originalCity = property.propertyCity || "";
+		if (!originalCity) {
+			setIsFillingForm(false);
 			return;
 		}
 
@@ -265,69 +274,97 @@ const UpdatePropertyModal = ({
 			(s) => s.name.toLowerCase() === propertyState.toLowerCase()
 		);
 		if (!foundState) {
-			setCityOptions([]);
-			setPropertyCity("");
-			setOtherCityName("");
+			setCustomCityOption({
+				label: originalCity,
+				value: originalCity,
+			});
+			setCityOptions([
+				{ label: originalCity, value: originalCity },
+				{ label: "Other", value: "other" },
+			]);
+			setPropertyCity(originalCity);
+			setIsFillingForm(false);
 			return;
 		}
 
-		// build city dropdown
-		const transformedCities = (foundState.majorCities || []).map((city) => ({
-			label: city.name,
-			value: city.name,
-			lat: city.latitude,
-			lng: city.longitude,
+		const majorCities = (foundState.majorCities || []).map((c) => ({
+			label: c.name,
+			value: c.name,
+			lat: c.latitude,
+			lng: c.longitude,
 		}));
-		transformedCities.push({ label: "Other", value: "other" });
-		setCityOptions(transformedCities);
+		majorCities.push({ label: "Other", value: "other" });
 
-		// if not initial load => user changed propertyState
-		if (!isInitialLoad) {
+		const matchedCity = majorCities.find(
+			(c) => c.value.toLowerCase() === originalCity.toLowerCase()
+		);
+
+		if (matchedCity) {
+			setCityOptions(majorCities);
+			setPropertyCity(matchedCity.value);
+			setCustomCityOption(null);
+		} else {
+			const customOption = { label: originalCity, value: originalCity };
+			setCustomCityOption(customOption);
+			setCityOptions([customOption, ...majorCities]);
+			setPropertyCity(originalCity);
+		}
+
+		setIsFillingForm(false);
+	}, [property, propertyState, isFillingForm]);
+
+	// ---------- HANDLERS ----------
+	const handleStateChange = (val) => {
+		setPropertyState(val);
+		if (!val) {
+			setCityOptions([]);
+			setCustomCityOption(null);
 			setPropertyCity("");
 			setOtherCityName("");
-			setMarkerLat(foundState.latitude);
-			setMarkerLng(foundState.longitude);
+			setMarkerLat(INDIA_COORDS.lat);
+			setMarkerLng(INDIA_COORDS.lng);
+			setMapCenter(INDIA_COORDS);
+			setMapZoom(5);
 			return;
 		}
-
-		// initial load => attempt to match city
-		setMarkerLat(foundState.latitude);
-		setMarkerLng(foundState.longitude);
-
-		if (propertyCity) {
-			const match = transformedCities.find(
-				(c) => c.value.toLowerCase() === propertyCity.toLowerCase()
-			);
-			if (match) {
-				setPropertyCity(match.value);
-				setMarkerLat(match.lat);
-				setMarkerLng(match.lng);
-			} else {
-				// user typed city that isn't in majorCities => "other"
-				setPropertyCity("other");
-				setOtherCityName(propertyCity);
-			}
-		}
-		setIsInitialLoad(false);
-		// eslint-disable-next-line
-	}, [propertyState, isInitialLoad]);
-
-	/* 
-    3) If user picks city from dropdown 
-       => auto-set lat/lng if not "Other"
-  */
-	useEffect(() => {
-		if (!propertyCity || propertyCity === "other") return;
-		const chosen = cityOptions.find(
-			(c) => c.value.toLowerCase() === propertyCity.toLowerCase()
+		const found = indianStatesArray.find(
+			(s) => s.name.toLowerCase() === val.toLowerCase()
 		);
-		if (chosen) {
-			setMarkerLat(chosen.lat);
-			setMarkerLng(chosen.lng);
+		if (found) {
+			setMarkerLat(found.latitude || INDIA_COORDS.lat);
+			setMarkerLng(found.longitude || INDIA_COORDS.lng);
+			setMapCenter({
+				lat: found.latitude || INDIA_COORDS.lat,
+				lng: found.longitude || INDIA_COORDS.lng,
+			});
+			setMapZoom(6);
+		} else {
+			setMarkerLat(INDIA_COORDS.lat);
+			setMarkerLng(INDIA_COORDS.lng);
+			setMapCenter(INDIA_COORDS);
+			setMapZoom(5);
 		}
-	}, [propertyCity, cityOptions]);
+		setPropertyCity("");
+		setOtherCityName("");
+	};
 
-	/* MAP / GEO */
+	const handleCityChange = (val) => {
+		setPropertyCity(val);
+		if (!val || val === "other") return;
+		if (customCityOption && val === customCityOption.value) return;
+
+		const found = cityOptions.find(
+			(item) => item.value.toLowerCase() === val.toLowerCase()
+		);
+		if (found && found.lat && found.lng) {
+			setMarkerLat(found.lat);
+			setMarkerLng(found.lng);
+			setMapCenter({ lat: found.lat, lng: found.lng });
+			setMapZoom(10);
+		}
+	};
+
+	// ---------- MAP UTILITIES ----------
 	const handleScriptLoad = () => {
 		if (window.google && window.google.maps && !geocoderRef.current) {
 			geocoderRef.current = new window.google.maps.Geocoder();
@@ -335,16 +372,16 @@ const UpdatePropertyModal = ({
 	};
 
 	const openLocationModal = () => setLocationModalVisible(true);
+	const handleLocationModalOk = () => setLocationModalVisible(false);
+	const handleLocationModalCancel = () => setLocationModalVisible(false);
 
 	const handleMapClick = (e) => {
 		const lat = e.latLng.lat();
 		const lng = e.latLng.lng();
 		setMarkerLat(lat);
 		setMarkerLng(lng);
+		setMapCenter({ lat, lng });
 	};
-
-	const handleLocationModalOk = () => setLocationModalVisible(false);
-	const handleLocationModalCancel = () => setLocationModalVisible(false);
 
 	const handleAddressGeocode = () => {
 		if (!geocoderRef.current) {
@@ -355,8 +392,12 @@ const UpdatePropertyModal = ({
 			(results, status) => {
 				if (status === "OK" && results[0]) {
 					const loc = results[0].geometry.location;
-					setMarkerLat(loc.lat());
-					setMarkerLng(loc.lng());
+					const lat = loc.lat();
+					const lng = loc.lng();
+					setMarkerLat(lat);
+					setMarkerLng(lng);
+					setMapCenter({ lat, lng });
+					setMapZoom(14);
 					message.success("Address found! Marker updated.");
 				} else {
 					message.error("Unable to geocode that address.");
@@ -375,10 +416,12 @@ const UpdatePropertyModal = ({
 		}
 		setMarkerLat(lat);
 		setMarkerLng(lng);
+		setMapCenter({ lat, lng });
+		setMapZoom(14);
 		message.success("Manual coordinates set!");
 	};
 
-	/* CLOSE AREAS */
+	// ---------- CLOSE AREAS ----------
 	const handleAddCloseArea = () => {
 		if (!singleCloseArea.trim()) {
 			return message.error("Please enter a close area");
@@ -393,7 +436,7 @@ const UpdatePropertyModal = ({
 		setCloseAreas(updated);
 	};
 
-	/* ROOMS */
+	// ---------- ROOMS ----------
 	const handleAddRoom = () => {
 		setRooms((prev) => [
 			...prev,
@@ -417,7 +460,7 @@ const UpdatePropertyModal = ({
 		setRooms(updated);
 	};
 
-	/* SUBMIT => UPDATE PROPERTY */
+	// ---------- SUBMIT ----------
 	const handleOk = async () => {
 		if (!property) return;
 
@@ -429,7 +472,7 @@ const UpdatePropertyModal = ({
 			return message.error("Please select a state.");
 		}
 		if (!propertyCity.trim()) {
-			return message.error("Please select a city or 'Other'.");
+			return message.error("Please select a city or type one.");
 		}
 
 		let finalCity = propertyCity;
@@ -447,7 +490,6 @@ const UpdatePropertyModal = ({
 			return message.error("About property (English) is required.");
 		}
 
-		// Build final updated property
 		const updatedProperty = {
 			propertyName,
 			propertyName_OtherLanguage,
@@ -461,7 +503,7 @@ const UpdatePropertyModal = ({
 			propertySize: propertySizeObj,
 			propertyType: propertyTypeVal,
 			propertyStatus,
-			propertyPrice, // numeric
+			propertyPrice,
 			propertyExtraFees: propertyExtraFees || 0,
 			aboutProperty,
 			aboutPropertyOtherLanguange: aboutPropertyOtherLang,
@@ -490,7 +532,6 @@ const UpdatePropertyModal = ({
 		setServerError("");
 
 		try {
-			// If belongsTo is user obj or just ID:
 			const belongsToId =
 				property.belongsTo?._id || property.belongsTo || user._id;
 
@@ -563,7 +604,7 @@ const UpdatePropertyModal = ({
 				<Col span={12}>
 					<label style={{ display: "block" }}>
 						Property Name (English)
-						<Tooltip title='Adding a catchy name to your property, e.g. "Amazing Duplex in Mumbai"'>
+						<Tooltip title='A short, catchy name for your property'>
 							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 						</Tooltip>
 						<span style={{ color: "red", marginLeft: 4 }}>*</span>
@@ -590,7 +631,6 @@ const UpdatePropertyModal = ({
 			</Row>
 
 			<Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-				{/* STATE SELECT */}
 				<Col span={8}>
 					<label style={{ display: "block" }}>
 						State
@@ -604,18 +644,17 @@ const UpdatePropertyModal = ({
 						showSearch
 						placeholder='Select State'
 						value={propertyState || undefined}
-						onChange={(val) => setPropertyState(val)}
+						onChange={handleStateChange}
 						options={stateOptions}
 						optionFilterProp='label'
 						allowClear
 					/>
 				</Col>
 
-				{/* CITY SELECT + OTHER */}
 				<Col span={8}>
 					<label style={{ display: "block" }}>
 						City
-						<Tooltip title='Pick one of the major cities or choose "Other" to type in manually'>
+						<Tooltip title='Pick one of the major cities or "Other" to type manually.'>
 							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 						</Tooltip>
 						<span style={{ color: "red", marginLeft: 4 }}>*</span>
@@ -626,10 +665,9 @@ const UpdatePropertyModal = ({
 						showSearch
 						placeholder={propertyState ? "Select a city" : "Choose State first"}
 						value={propertyCity || undefined}
-						onChange={(val) => setPropertyCity(val)}
+						onChange={handleCityChange}
 						options={cityOptions}
 						optionFilterProp='label'
-						allowClear
 					/>
 					{propertyCity === "other" && (
 						<Input
@@ -644,7 +682,7 @@ const UpdatePropertyModal = ({
 				<Col span={8}>
 					<label style={{ display: "block" }}>
 						Phone
-						<Tooltip title='Contact phone number for potential buyers/tenants'>
+						<Tooltip title='Contact phone number'>
 							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 						</Tooltip>
 						<span style={{ color: "red", marginLeft: 4 }}>*</span>
@@ -661,7 +699,7 @@ const UpdatePropertyModal = ({
 				<Col span={8}>
 					<label style={{ display: "block" }}>
 						Property Floors
-						<Tooltip title='How many floors in the main property? e.g. if the whole building has 8 floors, then add 8 here.'>
+						<Tooltip title='How many floors in the property?'>
 							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 						</Tooltip>
 						<span style={{ color: "red", marginLeft: 4 }}>*</span>
@@ -677,7 +715,7 @@ const UpdatePropertyModal = ({
 				<Col span={8}>
 					<label style={{ display: "block" }}>
 						Bedrooms Count
-						<Tooltip title='How many bedrooms does this house or apartment have?'>
+						<Tooltip title='How many bedrooms does this property have?'>
 							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 						</Tooltip>
 						<span style={{ color: "red", marginLeft: 4 }}>*</span>
@@ -705,12 +743,11 @@ const UpdatePropertyModal = ({
 				</Col>
 			</Row>
 
-			{/* BATHROOM & SIZE */}
 			<Row gutter={[16, 16]} style={{ marginTop: 16 }}>
 				<Col span={8}>
 					<label style={{ display: "block" }}>
 						Bathrooms Count
-						<Tooltip title='How many bathrooms does the house/apartment have?'>
+						<Tooltip title='Number of bathrooms'>
 							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 						</Tooltip>
 					</label>
@@ -724,8 +761,8 @@ const UpdatePropertyModal = ({
 				</Col>
 				<Col span={8}>
 					<label style={{ display: "block" }}>
-						Property Size (square meter)
-						<Tooltip title='Total size of the property in square meter'>
+						Property Size (sq. meter)
+						<Tooltip title='Total size of the property in sqm'>
 							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 						</Tooltip>
 					</label>
@@ -740,12 +777,11 @@ const UpdatePropertyModal = ({
 				</Col>
 			</Row>
 
-			{/* TYPE/STATUS/PRICE */}
 			<Row gutter={[16, 16]} style={{ marginTop: 16 }}>
 				<Col span={8}>
 					<label style={{ display: "block" }}>
 						Property Type
-						<Tooltip title='Select the category of the property, e.g. Apartment, House, etc.'>
+						<Tooltip title='Apartment, House, etc.'>
 							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 						</Tooltip>
 						<span style={{ color: "red" }}>*</span>
@@ -760,7 +796,7 @@ const UpdatePropertyModal = ({
 				<Col span={8}>
 					<label style={{ display: "block" }}>
 						Property Status
-						<Tooltip title='Is this property for sale or for rent?'>
+						<Tooltip title='Sale or Rent'>
 							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 						</Tooltip>
 						<span style={{ color: "red" }}>*</span>
@@ -779,17 +815,13 @@ const UpdatePropertyModal = ({
 							title={
 								propertyStatus === "rent"
 									? "Enter monthly rent cost"
-									: "Enter the total sale price in RUPEE"
+									: "Enter total sale price (in RUPEE)"
 							}
 						>
 							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 						</Tooltip>
 						<span style={{ color: "red" }}>*</span>
 					</label>
-					{/* 
-            Use formatter & parser for comma separators 
-            while the underlying state remains numeric
-          */}
 					<InputNumber
 						min={0}
 						style={{ width: "100%" }}
@@ -811,7 +843,7 @@ const UpdatePropertyModal = ({
 				<Col span={8}>
 					<label style={{ display: "block" }}>
 						Monthly Extra Fees
-						<Tooltip title='Additional monthly charges, e.g. maintenance fees'>
+						<Tooltip title='Any additional monthly charges'>
 							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 						</Tooltip>
 					</label>
@@ -824,12 +856,11 @@ const UpdatePropertyModal = ({
 				</Col>
 			</Row>
 
-			{/* ABOUT PROPERTY */}
 			<Row gutter={[16, 16]} style={{ marginTop: 16 }}>
 				<Col span={12}>
 					<label style={{ display: "block" }}>
 						About Property (English)
-						<Tooltip title='Description about your property in English, e.g. "This is a lovely place."'>
+						<Tooltip title="Short description e.g. 'Lovely property in prime area'">
 							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 						</Tooltip>
 						<span style={{ color: "red" }}>*</span>
@@ -843,7 +874,7 @@ const UpdatePropertyModal = ({
 				<Col span={12}>
 					<label style={{ display: "block" }}>
 						About Property (Hindi)
-						<Tooltip title='Description about your property in Hindi'>
+						<Tooltip title='Optional Hindi description'>
 							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 						</Tooltip>
 					</label>
@@ -855,12 +886,11 @@ const UpdatePropertyModal = ({
 				</Col>
 			</Row>
 
-			{/* AMENITIES & VIEWS */}
 			<Row gutter={[16, 16]} style={{ marginTop: 16 }}>
 				<Col span={12}>
 					<label style={{ display: "block" }}>
 						Property Amenities
-						<Tooltip title='Select any features available in your property (parking, elevator, gym, etc.)'>
+						<Tooltip title='Parking, elevator, gym, etc.'>
 							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 						</Tooltip>
 					</label>
@@ -881,7 +911,7 @@ const UpdatePropertyModal = ({
 				<Col span={12}>
 					<label style={{ display: "block" }}>
 						Property Views
-						<Tooltip title='Select the type of scenic views available (sea view, mountain view, etc.)'>
+						<Tooltip title='Scenic views: sea, mountain, etc.'>
 							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 						</Tooltip>
 					</label>
@@ -901,7 +931,6 @@ const UpdatePropertyModal = ({
 				</Col>
 			</Row>
 
-			{/* CLOSE AREAS */}
 			<SectionTitle style={{ marginTop: 24 }}>
 				Close Areas (Optional)
 			</SectionTitle>
@@ -941,7 +970,6 @@ const UpdatePropertyModal = ({
 				</CloseAreasList>
 			)}
 
-			{/* ROOM DETAILS */}
 			<SectionTitle style={{ marginTop: 24 }}>Room Details</SectionTitle>
 			{rooms.map((room, idx) => (
 				<div
@@ -957,7 +985,7 @@ const UpdatePropertyModal = ({
 						<Col span={8}>
 							<label style={{ display: "block" }}>
 								Room Type
-								<Tooltip title='E.g. living room, bedroom, kitchen, bathroom, etc.'>
+								<Tooltip title='e.g. "living room", "bedroom", "kitchen", etc.'>
 									<InfoCircleOutlined
 										style={{ marginLeft: 8, color: "#999" }}
 									/>
@@ -1156,7 +1184,7 @@ const UpdatePropertyModal = ({
 				+ Add Room
 			</Button>
 
-			{/* LOCATION */}
+			{/* LOCATION COORDS */}
 			<SectionTitle style={{ marginTop: 24 }}>
 				Location Coordinates
 			</SectionTitle>
@@ -1164,7 +1192,7 @@ const UpdatePropertyModal = ({
 				<Col span={8}>
 					<label style={{ display: "block" }}>
 						Latitude
-						<Tooltip title='Latitude of the property location on map'>
+						<Tooltip title='Latitude on the map'>
 							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 						</Tooltip>
 						<span style={{ color: "red", marginLeft: 4 }}>*</span>
@@ -1173,13 +1201,17 @@ const UpdatePropertyModal = ({
 						type='number'
 						step='0.000001'
 						value={markerLat}
-						onChange={(e) => setMarkerLat(Number(e.target.value))}
+						onChange={(e) => {
+							const val = e.target.value;
+							setMarkerLat(val);
+							setMapCenter((c) => ({ ...c, lat: val }));
+						}}
 					/>
 				</Col>
 				<Col span={8}>
 					<label style={{ display: "block" }}>
 						Longitude
-						<Tooltip title='Longitude of the property location on map'>
+						<Tooltip title='Longitude on the map'>
 							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 						</Tooltip>
 						<span style={{ color: "red", marginLeft: 4 }}>*</span>
@@ -1188,16 +1220,14 @@ const UpdatePropertyModal = ({
 						type='number'
 						step='0.000001'
 						value={markerLng}
-						onChange={(e) => setMarkerLng(Number(e.target.value))}
+						onChange={(e) => {
+							const val = e.target.value;
+							setMarkerLng(val);
+							setMapCenter((c) => ({ ...c, lng: val }));
+						}}
 					/>
 				</Col>
-				<Col
-					span={8}
-					style={{
-						display: "flex",
-						alignItems: "flex-end",
-					}}
-				>
+				<Col span={8} style={{ display: "flex", alignItems: "flex-end" }}>
 					<Button type='primary' onClick={openLocationModal}>
 						Open Map
 					</Button>
@@ -1205,73 +1235,88 @@ const UpdatePropertyModal = ({
 			</Row>
 
 			{/* MAP MODAL */}
-			<Modal
-				title='Select Property Coordinates'
-				open={locationModalVisible}
-				onOk={handleLocationModalOk}
-				onCancel={handleLocationModalCancel}
-				width={1000}
-			>
-				<div style={{ marginBottom: 16 }}>
-					<Input
-						placeholder='Type an address to geocode...'
-						value={addressToGeocode}
-						onChange={(e) => setAddressToGeocode(e.target.value)}
-						style={{ marginBottom: 8 }}
-					/>
-					<Button onClick={handleAddressGeocode}>Geocode Address</Button>
-				</div>
-				<div style={{ marginBottom: 16 }}>
-					<label style={{ marginRight: 8 }}>
-						<input
-							type='checkbox'
-							checked={manualInputEnabled}
-							onChange={(e) => setManualInputEnabled(e.target.checked)}
-						/>
-						<span style={{ marginLeft: 4 }}>Enter lat/lng manually?</span>
-					</label>
-					{manualInputEnabled && (
-						<div style={{ marginTop: 8 }}>
-							<Input
-								placeholder='Latitude'
-								type='number'
-								style={{ marginBottom: 8 }}
-								onChange={(e) => setManualLat(e.target.value)}
-							/>
-							<Input
-								placeholder='Longitude'
-								type='number'
-								style={{ marginBottom: 8 }}
-								onChange={(e) => setManualLng(e.target.value)}
-							/>
-							<Button onClick={handleManualSubmit}>Set Coordinates</Button>
-						</div>
-					)}
-				</div>
-				<LoadScript
-					googleMapsApiKey={process.env.REACT_APP_MAPS_API_KEY || ""}
-					onLoad={handleScriptLoad}
-				>
-					<GoogleMap
-						mapContainerStyle={{ width: "100%", height: "500px" }}
-						center={{ lat: markerLat, lng: markerLng }}
-						zoom={6}
-						onClick={handleMapClick}
-						options={{ disableDoubleClickZoom: false }}
+
+			{process.env.REACT_APP_MAPS_API_KEY &&
+				parseFloat(markerLat) &&
+				parseFloat(markerLng) && (
+					<Modal
+						title='Select Property Coordinates'
+						open={locationModalVisible}
+						onOk={handleLocationModalOk}
+						onCancel={handleLocationModalCancel}
+						width={1000}
 					>
-						<Marker
-							position={{ lat: markerLat, lng: markerLng }}
-							draggable
-							onDragEnd={(e) => {
-								const newLat = e.latLng.lat();
-								const newLng = e.latLng.lng();
-								setMarkerLat(newLat);
-								setMarkerLng(newLng);
-							}}
-						/>
-					</GoogleMap>
-				</LoadScript>
-			</Modal>
+						<div style={{ marginBottom: 16 }}>
+							<Input
+								placeholder='Type an address to geocode...'
+								value={addressToGeocode}
+								onChange={(e) => setAddressToGeocode(e.target.value)}
+								style={{ marginBottom: 8 }}
+							/>
+							<Button onClick={handleAddressGeocode}>Geocode Address</Button>
+						</div>
+
+						<div style={{ marginBottom: 16 }}>
+							<label style={{ marginRight: 8 }}>
+								<input
+									type='checkbox'
+									checked={manualInputEnabled}
+									onChange={(e) => setManualInputEnabled(e.target.checked)}
+								/>
+								<span style={{ marginLeft: 4 }}>Enter lat/lng manually?</span>
+							</label>
+							{manualInputEnabled && (
+								<div style={{ marginTop: 8 }}>
+									<Input
+										placeholder='Latitude'
+										type='number'
+										style={{ marginBottom: 8 }}
+										onChange={(e) => setManualLat(e.target.value)}
+									/>
+									<Input
+										placeholder='Longitude'
+										type='number'
+										style={{ marginBottom: 8 }}
+										onChange={(e) => setManualLng(e.target.value)}
+									/>
+									<Button onClick={handleManualSubmit}>Set Coordinates</Button>
+								</div>
+							)}
+						</div>
+
+						<LoadScript
+							googleMapsApiKey={process.env.REACT_APP_MAPS_API_KEY || ""}
+							onLoad={handleScriptLoad}
+						>
+							<GoogleMap
+								mapContainerStyle={{ width: "100%", height: "500px" }}
+								center={{
+									lat: parseFloat(markerLat) || INDIA_COORDS.lat,
+									lng: parseFloat(markerLng) || INDIA_COORDS.lng,
+								}}
+								zoom={mapZoom}
+								onClick={handleMapClick}
+								options={{ disableDoubleClickZoom: false }}
+							>
+								{/* This Marker uses parseFloat just like your SingleHotel example */}
+								<MarkerF
+									position={{
+										lat: parseFloat(markerLat) || INDIA_COORDS.lat,
+										lng: parseFloat(markerLng) || INDIA_COORDS.lng,
+									}}
+									draggable
+									onDragEnd={(e) => {
+										const newLat = e.latLng.lat();
+										const newLng = e.latLng.lng();
+										setMarkerLat(newLat);
+										setMarkerLng(newLng);
+										setMapCenter({ lat: newLat, lng: newLng });
+									}}
+								/>
+							</GoogleMap>
+						</LoadScript>
+					</Modal>
+				)}
 		</Modal>
 	);
 };
@@ -1299,13 +1344,11 @@ const CloseAreasList = styled.ul`
 	list-style: none;
 	padding-left: 0;
 	margin: 0;
-
 	li {
 		margin-bottom: 8px;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-
 		.areaLabel {
 			flex: 1;
 			margin-right: 8px;

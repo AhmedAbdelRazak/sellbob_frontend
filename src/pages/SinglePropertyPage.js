@@ -6,7 +6,7 @@ import axios from "axios";
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
-import { LoadScript, GoogleMap, Marker } from "@react-google-maps/api";
+import { LoadScript, GoogleMap, MarkerF } from "@react-google-maps/api";
 import { InfoCircleOutlined } from "@ant-design/icons";
 
 // Helper to format large numbers with commas
@@ -352,7 +352,7 @@ const SinglePropertyPage = () => {
 									center={{ lat: lat, lng: lng }}
 									zoom={14}
 								>
-									<Marker position={{ lat: lat, lng: lng }} />
+									<MarkerF position={{ lat: lat, lng: lng }} />
 								</GoogleMap>
 							)}
 						</LoadScript>
