@@ -6,10 +6,20 @@ import { GoogleLogin } from "@react-oauth/google";
 import { FaFacebookF, FaUserAlt, FaPhoneAlt, FaLock } from "react-icons/fa";
 import { MdEmail } from "react-icons/md";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
-import { signup, signin, authenticate, isAuthenticated } from "../auth";
-import { Redirect, Link } from "react-router-dom";
+import { signup, signin, authenticate } from "../../auth";
+// import { Redirect } from "react-router-dom";  // <-- No longer needed
 
-const Signup = () => {
+/**
+ * @param {object} props
+ * @param {boolean} props.signInModalOpen - from parent, if you still need it
+ * @param {function} props.setSignInModalOpen - from parent, if you still need it
+ * @param {function} props.onToggleSignIn - a callback to toggle the sign-in form (new)
+ */
+const Signup = ({
+	signInModalOpen,
+	setSignInModalOpen,
+	onToggleSignIn, // <-- new prop to toggle
+}) => {
 	// FORM FIELDS
 	const [fullName, setFullName] = useState("");
 	const [email, setEmail] = useState("");
@@ -37,11 +47,9 @@ const Signup = () => {
 	const [loading, setLoading] = useState(false);
 
 	// ----------------------------
-	// 1) Store last path in localStorage
+	// 1) (Optional) store last path in localStorage
 	// ----------------------------
 	useEffect(() => {
-		// If the user navigated here from the same domain,
-		// store that path so we can redirect back for normal users.
 		const referrer = document.referrer;
 		if (referrer && referrer.includes(window.location.host)) {
 			const path = referrer.split(window.location.host)[1];
@@ -54,13 +62,6 @@ const Signup = () => {
 			localStorage.setItem("lastPath", "/");
 		}
 	}, []);
-
-	// If user is already authenticated, redirect them away
-	const redirectUserIfLoggedIn = () => {
-		if (isAuthenticated()) {
-			return <Redirect to='/' />;
-		}
-	};
 
 	// ----------------------------
 	// 2) FACEBOOK SDK INIT (Manual)
@@ -205,7 +206,7 @@ const Signup = () => {
 		setLoading(true);
 
 		try {
-			// 1) Sign up user on backend with role=0
+			// 1) Sign up user on backend
 			const signupData = await signup({
 				name: fullName,
 				email,
@@ -231,27 +232,14 @@ const Signup = () => {
 			// 3) Save token/user in localStorage
 			authenticate(signinData, () => {});
 
-			// 4) Show spinner for 2 seconds, then redirect
+			// 4) Show spinner for 3 seconds, then reload same page
 			setTimeout(() => {
+				// We can hide the spinner if we want, but not strictly needed
 				setLoading(false);
 
-				// Check role from the newly signed-in user
-				const userRole = signinData?.user?.role;
-				if (userRole === 1000) {
-					// Admin
-					window.location.href = "/admin/dashboard";
-				} else if (userRole === 2000) {
-					// Agent
-					window.location.href = "/agent/dashboard";
-				} else {
-					// Normal user => redirect to lastPath if available
-					let lastPath = localStorage.getItem("lastPath") || "/";
-					if (lastPath === "/signin" || lastPath === "/signup") {
-						lastPath = "/";
-					}
-					window.location.href = lastPath;
-				}
-			}, 2000);
+				// No redirect; just reload the page:
+				window.location.reload();
+			}, 3000);
 		} catch (err) {
 			console.error("Signup error:", err);
 			setLoading(false);
@@ -276,25 +264,15 @@ const Signup = () => {
 							`${process.env.REACT_APP_API_URL}/facebook-login`,
 							{ userID, accessToken }
 						);
-						// data = { token, user: {...} }
 						if (data.error) {
 							return alert(data.error);
 						}
 						// store in localStorage
 						authenticate(data, () => {
-							// role-based redirect or last path
-							const userRole = data?.user?.role;
-							if (userRole === 1000) {
-								window.location.href = "/admin/dashboard";
-							} else if (userRole === 2000) {
-								window.location.href = "/agent/dashboard";
-							} else {
-								let lastPath = localStorage.getItem("lastPath") || "/";
-								if (lastPath === "/signin" || lastPath === "/signup") {
-									lastPath = "/";
-								}
-								window.location.href = lastPath;
-							}
+							// Wait 3s, then reload
+							setTimeout(() => {
+								window.location.reload();
+							}, 3000);
 						});
 					} catch (error) {
 						console.log("Facebook signup error:", error);
@@ -326,7 +304,6 @@ const Signup = () => {
 				`${process.env.REACT_APP_API_URL}/google-login`,
 				{ idToken: credential }
 			);
-			// data = { token, user: {...} }
 			setLoading(false);
 
 			if (data.error) {
@@ -335,19 +312,10 @@ const Signup = () => {
 
 			// store in localStorage
 			authenticate(data, () => {
-				// role-based redirect or last path
-				const userRole = data?.user?.role;
-				if (userRole === 1000) {
-					window.location.href = "/admin/dashboard";
-				} else if (userRole === 2000) {
-					window.location.href = "/agent/dashboard";
-				} else {
-					let lastPath = localStorage.getItem("lastPath") || "/";
-					if (lastPath === "/signin" || lastPath === "/signup") {
-						lastPath = "/";
-					}
-					window.location.href = lastPath;
-				}
+				// Wait 3s, then reload
+				setTimeout(() => {
+					window.location.reload();
+				}, 3000);
 			});
 		} catch (error) {
 			console.log("Google signup error:", error);
@@ -358,8 +326,11 @@ const Signup = () => {
 
 	return (
 		<>
-			{/* If user is logged in, redirect away */}
-			{redirectUserIfLoggedIn()}
+			{/**
+			 * COMMENTED OUT: We do NOT want to redirect the user if already authenticated
+			 *
+			 * if (isAuthenticated()) return <Redirect to="/" />;
+			 */}
 
 			{/* Show overlay spinner if loading */}
 			{loading && (
@@ -509,23 +480,23 @@ const Signup = () => {
 							/>
 						</GoogleButton>
 
-						{/* Facebook Button example (uncomment if you want) */}
 						{/* <FacebookButton onClick={handleFacebookSignup}>
               <FaFacebookF style={{ marginRight: "8px" }} />
               Sign up with Facebook
             </FacebookButton> */}
 					</SocialButtons>
 
-					{/* Already have an account? */}
-					<BottomMessage>
-						<MessageIconWrapper>
-							<FaLock />
-						</MessageIconWrapper>
-						Already have an account?{" "}
-						<Link to='/signin' style={{ color: "var(--primary-color)" }}>
-							Click here to sign in
-						</Link>
-					</BottomMessage>
+					{/* Toggle to Sign In? */}
+					<ToggleRow>
+						<span>Already have an account?</span>
+						<ToggleLink
+							onClick={() => {
+								if (onToggleSignIn) onToggleSignIn(true);
+							}}
+						>
+							Sign In
+						</ToggleLink>
+					</ToggleRow>
 				</FormContainer>
 			</SignupWrapper>
 		</>
@@ -748,16 +719,22 @@ const RegisteringText = styled.div`
 	font-weight: bold;
 `;
 
-const BottomMessage = styled.div`
+const ToggleRow = styled.div`
 	margin-top: 1rem;
 	text-align: center;
-	font-size: 0.95rem;
-	color: var(--text-color-secondary);
+	font-size: 0.9rem;
+	color: var(--darkGrey);
+
+	span {
+		margin-right: 0.3rem;
+	}
 `;
 
-const MessageIconWrapper = styled.span`
-	color: var(--secondary-color);
-	margin-right: 6px;
-	font-size: 0.9rem;
-	vertical-align: middle;
+const ToggleLink = styled.span`
+	color: var(--primary-color);
+	text-decoration: underline;
+	cursor: pointer;
+	&:hover {
+		color: var(--primary-color-light);
+	}
 `;

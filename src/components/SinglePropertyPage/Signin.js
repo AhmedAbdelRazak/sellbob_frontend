@@ -4,14 +4,24 @@ import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
 // eslint-disable-next-line
 import { FaFacebookF, FaUserAlt, FaLock } from "react-icons/fa";
 import { message } from "antd";
-import { authenticate, isAuthenticated, signin } from "../auth";
-import { Redirect, Link } from "react-router-dom";
+import { authenticate, signin } from "../../auth";
+// import { Redirect } from "react-router-dom";
 import axios from "axios";
 
 // Official Google <GoogleLogin>
 import { GoogleLogin } from "@react-oauth/google";
 
-const Signin = () => {
+/**
+ * @param {object} props
+ * @param {boolean} props.signInModalOpen - from parent, if you still need it
+ * @param {function} props.setSignInModalOpen - from parent, if you still need it
+ * @param {function} props.onToggleSignIn - a callback to toggle the sign-in form (new)
+ */
+const Signin = ({
+	signInModalOpen,
+	setSignInModalOpen,
+	onToggleSignIn, // <-- new prop to toggle
+}) => {
 	const [emailOrPhone, setEmailOrPhone] = useState("");
 	const [password, setPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
@@ -26,7 +36,7 @@ const Signin = () => {
 	const [loading, setLoading] = useState(false);
 
 	// ----------------------------
-	// 1) Store last path in localStorage
+	// (Optional) store last path in localStorage
 	// ----------------------------
 	useEffect(() => {
 		const referrer = document.referrer;
@@ -69,13 +79,14 @@ const Signin = () => {
 	}, []);
 
 	// ----------------------------
-	// 3) REDIRECT IF ALREADY AUTHENTICATED
+	// 3) If user is already auth, do NOT redirect
+	//    (comment out the redirect logic)
 	// ----------------------------
-	const redirectUser = () => {
-		if (isAuthenticated()) {
-			return <Redirect to='/' />;
-		}
-	};
+	// const redirectUser = () => {
+	//   if (isAuthenticated()) {
+	//     return <Redirect to='/' />;
+	//   }
+	// };
 
 	// ----------------------------
 	// 4) FIELD VALIDATION (blur)
@@ -136,26 +147,11 @@ const Signin = () => {
 				} else {
 					// Successful sign in
 					authenticate(data, () => {
-						// Show spinner again for 2 seconds
-						setLoading(true);
-
+						// Show spinner for 3 seconds, then reload
 						setTimeout(() => {
 							setLoading(false);
-
-							// Role-based redirect
-							if (data?.user?.role === 1000) {
-								window.location.href = "/admin/dashboard";
-							} else if (data?.user?.role === 2000) {
-								window.location.href = "/agent/dashboard";
-							} else {
-								// Normal user => go to last path if any
-								let lastPath = localStorage.getItem("lastPath") || "/";
-								if (lastPath === "/signin" || lastPath === "/signup") {
-									lastPath = "/";
-								}
-								window.location.href = lastPath;
-							}
-						}, 2000);
+							window.location.reload();
+						}, 3000);
 					});
 				}
 			} catch (err) {
@@ -176,7 +172,6 @@ const Signin = () => {
 			}
 			setLoading(true);
 
-			// POST to your backend for verification
 			const { data } = await axios.post(
 				`${process.env.REACT_APP_API_URL}/google-login`,
 				{ idToken: credential }
@@ -188,25 +183,11 @@ const Signin = () => {
 			} else {
 				// store token
 				authenticate(data, () => {
-					// show spinner for 2s
-					setLoading(true);
-
+					// show spinner for 3s then reload
 					setTimeout(() => {
 						setLoading(false);
-
-						// role-based redirect
-						if (data?.user?.role === 1000) {
-							window.location.href = "/admin/dashboard";
-						} else if (data?.user?.role === 2000) {
-							window.location.href = "/agent/dashboard";
-						} else {
-							let lastPath = localStorage.getItem("lastPath") || "/";
-							if (lastPath === "/signin" || lastPath === "/signup") {
-								lastPath = "/";
-							}
-							window.location.href = lastPath;
-						}
-					}, 2000);
+						window.location.reload();
+					}, 3000);
 				});
 			}
 		} catch (error) {
@@ -242,23 +223,11 @@ const Signin = () => {
 						} else {
 							// store token
 							authenticate(data, () => {
-								// show spinner
-								setLoading(true);
+								// show spinner for 3s then reload
 								setTimeout(() => {
 									setLoading(false);
-									// role-based redirect
-									if (data?.user?.role === 1000) {
-										window.location.href = "/admin/dashboard";
-									} else if (data?.user?.role === 2000) {
-										window.location.href = "/agent/dashboard";
-									} else {
-										let lastPath = localStorage.getItem("lastPath") || "/";
-										if (lastPath === "/signin" || lastPath === "/signup") {
-											lastPath = "/";
-										}
-										window.location.href = lastPath;
-									}
-								}, 2000);
+									window.location.reload();
+								}, 3000);
 							});
 						}
 					} catch (err) {
@@ -278,7 +247,10 @@ const Signin = () => {
 
 	return (
 		<>
-			{redirectUser()}
+			{/**
+			 * COMMENTED OUT:
+			 * // {redirectUser()}
+			 */}
 
 			{/* Loading overlay if loading == true */}
 			{loading && (
@@ -366,16 +338,17 @@ const Signin = () => {
             </FacebookButton> */}
 					</SocialButtons>
 
-					{/* Don't have an account? */}
-					<BottomMessage>
-						<MessageIconWrapper>
-							<FaLock />
-						</MessageIconWrapper>
-						Don't have an account?{" "}
-						<Link to='/signup' style={{ color: "var(--primary-color)" }}>
-							Sign up here
-						</Link>
-					</BottomMessage>
+					{/* Toggle to Sign Up? */}
+					<ToggleRow>
+						<span>Don’t have an account?</span>
+						<ToggleLink
+							onClick={() => {
+								if (onToggleSignIn) onToggleSignIn(false);
+							}}
+						>
+							Sign Up
+						</ToggleLink>
+					</ToggleRow>
 				</SignInFormContainer>
 			</SigninWrapper>
 		</>
@@ -584,16 +557,22 @@ const SigningInText = styled.div`
 	font-weight: bold;
 `;
 
-const BottomMessage = styled.div`
+const ToggleRow = styled.div`
 	margin-top: 1rem;
 	text-align: center;
-	font-size: 0.95rem;
-	color: var(--text-color-secondary);
+	font-size: 0.9rem;
+	color: var(--darkGrey);
+
+	span {
+		margin-right: 0.3rem;
+	}
 `;
 
-const MessageIconWrapper = styled.span`
-	color: var(--secondary-color);
-	margin-right: 6px;
-	font-size: 0.9rem;
-	vertical-align: middle;
+const ToggleLink = styled.span`
+	color: var(--primary-color);
+	text-decoration: underline;
+	cursor: pointer;
+	&:hover {
+		color: var(--primary-color-light);
+	}
 `;

@@ -19,12 +19,20 @@ import { InfoCircleOutlined } from "@ant-design/icons";
 import { isAuthenticated } from "../../auth";
 import { createNewProperty } from "../apiAgent";
 import ImageCardMain from "./ImageCardMain";
+
 // Make sure your path/filename is correct here:
-import { indianStatesArray } from "../utils";
+import {
+	indianStatesArray,
+	closeAreasList, // We need to import the closeAreasList from utils
+} from "../utils";
 
 const { TextArea } = Input;
 const INDIA_COORDS = { lat: 20.5937, lng: 78.9629 };
 
+/** 
+  Example propertyTypes & propertyStatus, typically from utils or your definitions.
+  Keeping them inline here for consistency.
+*/
 const propertyTypes = [
 	{ label: "Apartment", value: "apartment" },
 	{ label: "House", value: "house" },
@@ -114,10 +122,10 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 	const [propertyFloors, setPropertyFloors] = useState(1);
 	const [overallRoomsCount, setOverallRoomsCount] = useState(1);
 
-	// New: bathrooms
+	// bathrooms
 	const [bathRoomsCount, setBathRoomsCount] = useState(1);
 
-	// New: propertySize as an object
+	// propertySize as an object
 	const [propertySizeObj, setPropertySizeObj] = useState({
 		size: 0,
 		unit: "square meter",
@@ -126,7 +134,7 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 	const [propertyTypeVal, setPropertyTypeVal] = useState("apartment");
 	const [propertyStatus, setPropertyStatus] = useState("sale");
 
-	// --- Price & Fees
+	// Price & Fees
 	const [propertyPrice, setPropertyPrice] = useState(0);
 	const [propertyExtraFees, setPropertyExtraFees] = useState(0);
 
@@ -138,7 +146,11 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 
 	// ---------- CLOSE AREAS ----------
 	const [closeAreas, setCloseAreas] = useState([]);
-	const [singleCloseArea, setSingleCloseArea] = useState("");
+
+	// NEW: For building a close area string
+	const [selectedCloseAreaLabel, setSelectedCloseAreaLabel] = useState(""); // e.g. "School"
+	const [customCloseAreaName, setCustomCloseAreaName] = useState(""); // e.g. "Mumbai Airport"
+	const [closeAreaDistance, setCloseAreaDistance] = useState(""); // e.g. "1 mile"
 
 	// ---------- PROPERTY-LEVEL PHOTOS ----------
 	const [propertyPhotos, setPropertyPhotos] = useState([]);
@@ -167,24 +179,19 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 	const [addressToGeocode, setAddressToGeocode] = useState("");
 	const geocoderRef = useRef(null);
 
-	// ---------- LOADING / ERROR ----------
+	// LOADING / ERROR
 	const [loading, setLoading] = useState(false);
 	const [serverError, setServerError] = useState("");
 
-	/* ----------------------------------
-     ON LOAD: PREP STATE DROPDOWN OPTIONS
-  ---------------------------------- */
+	/** ----------------------------------
+	 *   ON LOAD: PREP STATE DROPDOWN OPTIONS
+	 ---------------------------------- */
 	const stateOptions = indianStatesArray.map((st) => ({
 		label: st.name,
 		value: st.name,
 	}));
 
-	// We'll build city dropdown dynamically after a user picks a state.
 	const [cityOptions, setCityOptions] = useState([]);
-
-	// Whenever the user selects a different state, we:
-	//  1) Auto‐set marker lat/lng to that state's coordinates
-	//  2) Build a city dropdown from that state's `majorCities` plus "Other"
 	useEffect(() => {
 		if (!propertyState) {
 			setCityOptions([]);
@@ -208,7 +215,7 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 			transformed.push({ label: "Other", value: "other" });
 			setCityOptions(transformed);
 
-			// reset city in case it was previously set
+			// reset city
 			setPropertyCity("");
 			setOtherCityName("");
 		} else {
@@ -226,9 +233,9 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 		}
 	}, [propertyCity, cityOptions]);
 
-	/* ----------------------------------
-     MAP / GEO SETUP
-  ---------------------------------- */
+	/** ----------------------------------
+	 *   MAP / GEO SETUP
+	 ---------------------------------- */
 	const handleScriptLoad = () => {
 		if (window.google && window.google.maps && !geocoderRef.current) {
 			geocoderRef.current = new window.google.maps.Geocoder();
@@ -236,7 +243,6 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 	};
 
 	const openLocationModal = () => setLocationModalVisible(true);
-
 	const handleMapClick = (e) => {
 		const lat = e.latLng.lat();
 		const lng = e.latLng.lng();
@@ -279,15 +285,44 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 		message.success("Manual coordinates set!");
 	};
 
-	/* ----------------------------------
-     CLOSE AREAS
-  ---------------------------------- */
+	/** ----------------------------------
+	 *   CLOSE AREAS - ADJUSTED BUILDER
+	 ---------------------------------- */
 	const handleAddCloseArea = () => {
-		if (!singleCloseArea.trim()) {
-			return message.error("Please enter a close area");
+		if (!selectedCloseAreaLabel && !customCloseAreaName) {
+			return message.error("Please select or enter a close area name.");
 		}
-		setCloseAreas([...closeAreas, singleCloseArea]);
-		setSingleCloseArea("");
+		if (!closeAreaDistance.trim()) {
+			return message.error("Please enter distance (e.g. '1 mile').");
+		}
+
+		// Always include the label from closeAreasList
+		// If custom name is also provided, it goes first, e.g. "Hamada School"
+		// If no custom name, we just use "School"
+		const finalLabel = customCloseAreaName.trim()
+			? `${customCloseAreaName.trim()} ${selectedCloseAreaLabel}`
+			: selectedCloseAreaLabel;
+
+		// If user didn't pick from the dropdown but typed custom only, fallback
+		// e.g. if the user didn't choose "School" but typed "Doctor" + distance
+		// we can do: "Doctor - 3 meters from property"
+		// But you explicitly want the label too.
+		// So let's ensure we have something for selectedCloseAreaLabel
+		// if not provided.
+		let labelToUse = finalLabel.trim();
+		if (!labelToUse) {
+			// fallback if user didn't pick a label from dropdown:
+			labelToUse = customCloseAreaName.trim();
+		}
+
+		const finalString = `${labelToUse} - ${closeAreaDistance} from property`;
+
+		setCloseAreas([...closeAreas, finalString]);
+
+		// Reset
+		setSelectedCloseAreaLabel("");
+		setCustomCloseAreaName("");
+		setCloseAreaDistance("");
 	};
 
 	const handleRemoveCloseArea = (idx) => {
@@ -296,9 +331,9 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 		setCloseAreas(updated);
 	};
 
-	/* ----------------------------------
-     ROOMS
-  ---------------------------------- */
+	/** ----------------------------------
+	 *   ROOMS
+	 ---------------------------------- */
 	const handleAddRoom = () => {
 		setRooms([
 			...rooms,
@@ -314,15 +349,16 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 			},
 		]);
 	};
+
 	const handleRemoveRoom = (idx) => {
 		const updated = [...rooms];
 		updated.splice(idx, 1);
 		setRooms(updated);
 	};
 
-	/* ----------------------------------
-     SUBMIT => CREATE PROPERTY
-  ---------------------------------- */
+	/** ----------------------------------
+	 *   SUBMIT => CREATE PROPERTY
+	 ---------------------------------- */
 	const handleOk = async () => {
 		// Basic validations
 		if (!propertyName.trim()) {
@@ -373,7 +409,7 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 
 			amenities: propertyAmenities,
 			views: propertyViews,
-			closeAreas,
+			closeAreas, // array of strings
 			propertyPhotos,
 
 			// location
@@ -444,7 +480,9 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 		setPropertyAmenities([]);
 		setPropertyViews([]);
 		setCloseAreas([]);
-		setSingleCloseArea("");
+		setSelectedCloseAreaLabel("");
+		setCustomCloseAreaName("");
+		setCloseAreaDistance("");
 		setPropertyPhotos([]);
 		setRooms([
 			{
@@ -462,9 +500,6 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 		setMarkerLng(INDIA_COORDS.lng);
 	};
 
-	/* ----------------------------------
-     RENDER
-  ---------------------------------- */
 	return (
 		<Modal
 			title='Add New Property'
@@ -503,7 +538,7 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					<Col span={12}>
 						<label style={{ display: "block" }}>
 							Property Name (English)
-							<Tooltip title='Adding a catchy name to your property, e.g. "Amazing Duplex in Mumbai"'>
+							<Tooltip title='Add a catchy name, e.g. "Amazing Duplex in Mumbai"'>
 								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 							</Tooltip>
 							<span style={{ color: "red", marginLeft: 4 }}>*</span>
@@ -517,7 +552,7 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					<Col span={12}>
 						<label style={{ display: "block" }}>
 							Property Name (Hindi)
-							<Tooltip title='If you prefer to also name the property in Hindi'>
+							<Tooltip title='If you want a Hindi name too'>
 								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 							</Tooltip>
 						</label>
@@ -573,7 +608,6 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 							optionFilterProp='label'
 							allowClear
 						/>
-						{/* If "Other" is chosen, show text input */}
 						{propertyCity === "other" && (
 							<Input
 								style={{ marginTop: 8 }}
@@ -604,7 +638,7 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					<Col span={8}>
 						<label style={{ display: "block" }}>
 							Property Floors
-							<Tooltip title='How many floors in the main property? e.g. if the whole building has 8 floors, then add 8 here.'>
+							<Tooltip title='How many floors in the main property?'>
 								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 							</Tooltip>
 							<span style={{ color: "red", marginLeft: 4 }}>*</span>
@@ -620,7 +654,7 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					<Col span={8}>
 						<label style={{ display: "block" }}>
 							Bedrooms Count
-							<Tooltip title='How many bedrooms does this house or apartment have?'>
+							<Tooltip title='How many bedrooms does it have?'>
 								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 							</Tooltip>
 							<span style={{ color: "red", marginLeft: 4 }}>*</span>
@@ -653,7 +687,7 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					<Col span={8}>
 						<label style={{ display: "block" }}>
 							Bathrooms Count
-							<Tooltip title='How many bathrooms does the house/ apartment have?'>
+							<Tooltip title='How many bathrooms?'>
 								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 							</Tooltip>
 						</label>
@@ -689,7 +723,7 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					<Col span={8}>
 						<label style={{ display: "block" }}>
 							Property Type
-							<Tooltip title='Select the category of the property, e.g. Apartment, House, etc.'>
+							<Tooltip title='e.g. Apartment, House, etc.'>
 								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 							</Tooltip>
 							<span style={{ color: "red" }}>*</span>
@@ -704,7 +738,7 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					<Col span={8}>
 						<label style={{ display: "block" }}>
 							Property Status
-							<Tooltip title='Is this property for sale or for rent?'>
+							<Tooltip title='Is this property for sale or rent?'>
 								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 							</Tooltip>
 							<span style={{ color: "red" }}>*</span>
@@ -730,10 +764,6 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 							</Tooltip>
 							<span style={{ color: "red" }}>*</span>
 						</label>
-						{/* 
-              Using formatter & parser to display comma separators 
-              while still storing numeric state
-            */}
 						<InputNumber
 							min={0}
 							style={{ width: "100%" }}
@@ -755,7 +785,7 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					<Col span={8}>
 						<label style={{ display: "block" }}>
 							Monthly Extra Fees
-							<Tooltip title='Additional monthly charges, e.g. maintenance fees'>
+							<Tooltip title='e.g. maintenance fees, if any'>
 								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 							</Tooltip>
 						</label>
@@ -773,7 +803,7 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					<Col span={12}>
 						<label style={{ display: "block" }}>
 							About Property (English)
-							<Tooltip title='Description about your property in English, e.g. "This is a lovely place."'>
+							<Tooltip title='Short description in English'>
 								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 							</Tooltip>
 							<span style={{ color: "red" }}>*</span>
@@ -787,7 +817,7 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					<Col span={12}>
 						<label style={{ display: "block" }}>
 							About Property (Hindi)
-							<Tooltip title='Description about your property in Hindi'>
+							<Tooltip title='Short description in Hindi'>
 								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 							</Tooltip>
 						</label>
@@ -804,7 +834,7 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					<Col span={12}>
 						<label style={{ display: "block" }}>
 							Property Amenities
-							<Tooltip title='Select any features available in your property (parking, elevator, gym, etc.)'>
+							<Tooltip title='Parking, elevator, gym, etc.'>
 								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 							</Tooltip>
 						</label>
@@ -825,7 +855,7 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					<Col span={12}>
 						<label style={{ display: "block" }}>
 							Property Views
-							<Tooltip title='Select the type of scenic views available (sea view, mountain view, etc.)'>
+							<Tooltip title='Views like sea view, mountain view, etc.'>
 								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 							</Tooltip>
 						</label>
@@ -846,27 +876,75 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 				</Row>
 
 				{/* CLOSE AREAS */}
-				<SectionTitle style={{ marginTop: 24 }}>
-					Close Areas (Optional)
-				</SectionTitle>
+				<SectionTitle style={{ marginTop: 24 }}>Close Areas</SectionTitle>
+
+				{/* The new UI for picking a label, name, and distance */}
 				<Row gutter={[16, 16]} style={{ marginBottom: 12 }}>
-					<Col span={16}>
+					<Col span={8}>
+						<label style={{ display: "block" }}>
+							Close Area Type
+							<Tooltip title='e.g. School, Hospital, etc. from utils'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
+						</label>
+						<Select
+							style={{ width: "100%" }}
+							showSearch
+							placeholder='Select e.g. "School"'
+							value={selectedCloseAreaLabel || undefined}
+							onChange={(val) => setSelectedCloseAreaLabel(val)}
+							optionFilterProp='label'
+							allowClear
+						>
+							{closeAreasList.map((areaObj) => (
+								<Select.Option
+									key={areaObj.label}
+									value={areaObj.label}
+									label={areaObj.label}
+								>
+									{areaObj.label}
+								</Select.Option>
+							))}
+						</Select>
+					</Col>
+					<Col span={8}>
+						<label style={{ display: "block" }}>
+							Custom Name (optional)
+							<Tooltip title='If you want a custom name, e.g. "Hamada"'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
+						</label>
 						<Input
-							placeholder='e.g. Nearby School'
-							value={singleCloseArea}
-							onChange={(e) => setSingleCloseArea(e.target.value)}
+							placeholder='e.g. "Mumbai Airport"'
+							value={customCloseAreaName}
+							onChange={(e) => setCustomCloseAreaName(e.target.value)}
+						/>
+					</Col>
+					<Col span={8}>
+						<label style={{ display: "block" }}>
+							Distance / Info
+							<Tooltip title='e.g. "1 mile", "2.5 km", etc.'>
+								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+							</Tooltip>
+						</label>
+						<Input
+							placeholder='e.g. "1 mile"'
+							value={closeAreaDistance}
+							onChange={(e) => setCloseAreaDistance(e.target.value)}
 							onPressEnter={(e) => {
 								e.preventDefault();
 								handleAddCloseArea();
 							}}
 						/>
 					</Col>
-					<Col span={8}>
-						<Button style={{ width: "100%" }} onClick={handleAddCloseArea}>
-							Add Close Area
-						</Button>
+				</Row>
+
+				<Row>
+					<Col span={24} style={{ textAlign: "right", marginBottom: 10 }}>
+						<Button onClick={handleAddCloseArea}>Add Close Area</Button>
 					</Col>
 				</Row>
+
 				{closeAreas.length > 0 && (
 					<CloseAreasList>
 						{closeAreas.map((area, idx) => (
@@ -901,7 +979,7 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 							<Col span={8}>
 								<label style={{ display: "block" }}>
 									Room Type
-									<Tooltip title='E.g. living room, bedroom, kitchen, bathroom, etc.'>
+									<Tooltip title='E.g. living room, bedroom, etc.'>
 										<InfoCircleOutlined
 											style={{ marginLeft: 8, color: "#999" }}
 										/>
@@ -928,7 +1006,7 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 							<Col span={8}>
 								<label style={{ display: "block" }}>
 									Count
-									<Tooltip title='How many of this specific room?'>
+									<Tooltip title='Number of this room type'>
 										<InfoCircleOutlined
 											style={{ marginLeft: 8, color: "#999" }}
 										/>
@@ -949,7 +1027,7 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 							<Col span={8}>
 								<label style={{ display: "block" }}>
 									Room Size (m²)
-									<Tooltip title='Approximate size in square meters'>
+									<Tooltip title='Approx. size in square meters'>
 										<InfoCircleOutlined
 											style={{ marginLeft: 8, color: "#999" }}
 										/>
@@ -1090,7 +1168,7 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					<Col span={8}>
 						<label style={{ display: "block" }}>
 							Latitude
-							<Tooltip title='Latitude of the property location on map'>
+							<Tooltip title='Latitude of the property location'>
 								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 							</Tooltip>
 							<span style={{ color: "red", marginLeft: 4 }}>*</span>
@@ -1105,7 +1183,7 @@ const AddPropertyModal = ({ visible, onCancel, onPropertyCreated }) => {
 					<Col span={8}>
 						<label style={{ display: "block" }}>
 							Longitude
-							<Tooltip title='Longitude of the property location on map'>
+							<Tooltip title='Longitude of the property location'>
 								<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 							</Tooltip>
 							<span style={{ color: "red", marginLeft: 4 }}>*</span>

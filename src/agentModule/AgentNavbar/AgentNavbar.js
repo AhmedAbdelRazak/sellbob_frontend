@@ -43,7 +43,6 @@ const AgentNavbar = ({
 }) => {
 	const [clickedOn, setClickedOn] = useState(false);
 	const { user } = isAuthenticated() || {};
-
 	const location = useLocation();
 	const history = useHistory();
 
@@ -129,7 +128,7 @@ const AgentNavbar = ({
 			"divider"
 		),
 		getItem(
-			"Create Property Subscription",
+			<Link to='/agent/account-update'>Account Update</Link>,
 			"sub13",
 			<ImportOutlined />,
 			null,
@@ -221,8 +220,8 @@ const AgentNavbar = ({
 										? "sub5"
 										: fromPage === "Campaigns"
 											? "sub6"
-											: fromPage === "AdminReports"
-												? "sub7"
+											: fromPage === "AccountUpdate"
+												? "sub13"
 												: fromPage === "AddProducts"
 													? "sub8"
 													: fromPage === "Listings"

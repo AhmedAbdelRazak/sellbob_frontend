@@ -8,6 +8,10 @@ import socket from "../socket"; // your socket instance
 import { getUnseenMessagesCountByCustomer } from "../apiCore";
 import notificationSound from "./Notification.wav";
 import { useCartContext } from "../cart_context";
+import { useRouteMatch } from "react-router-dom";
+import axios from "axios";
+
+/* --------------------------------- Animations --------------------------------- */
 
 // Simple blink animation for the status dot
 const blink = keyframes`
@@ -15,6 +19,20 @@ const blink = keyframes`
   50% { opacity: 0; }
   100% { opacity: 1; }
 `;
+
+// Fade in / scale for the agent’s avatar
+const fadeScaleIn = keyframes`
+  0% {
+    opacity: 0;
+    transform: scale(0.0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.0);
+  }
+`;
+
+/* --------------------------------- Styled Components --------------------------------- */
 
 const ChatIconWrapper = styled.div`
 	position: fixed;
@@ -110,14 +128,82 @@ const ChatButtonBox = styled.div`
 	}
 `;
 
+const AgentPhotoWrapper = styled.div`
+	display: flex;
+	align-items: center;
+	margin-right: 8px; /* space between photo and the icon/text */
+
+	img {
+		width: 55px;
+		height: 55px;
+		object-fit: cover;
+		border-radius: 50%;
+		animation: ${fadeScaleIn} 0.35s ease forwards;
+	}
+
+	@media (max-width: 750px) {
+		img {
+			width: 50px;
+			height: 50px;
+		}
+	}
+`;
+
+/* --------------------------------- Component --------------------------------- */
+
 const ChatIcon = () => {
 	const [isOpen, setIsOpen] = useState(false);
 	const [unseenCount, setUnseenCount] = useState(0);
 	const [hasInteracted, setHasInteracted] = useState(false);
 	const { chosenLanguage } = useCartContext();
 
+	// If user is authenticated, you store them in localStorage with key "user"
 	const [clientId, setClientId] = useState(null);
 
+	// If on SinglePropertyPage, fetch the agent's photo:
+	const [agentPhoto, setAgentPhoto] = useState(null);
+	const [propertyDetails, setPropertyDetails] = useState(null);
+
+	// v5 `useRouteMatch` to see if we are on "/single-property/:state/:slug/:propertyId"
+	const matchSingleProperty = useRouteMatch(
+		"/single-property/:state/:slug/:propertyId"
+	);
+
+	/* ------------------- Fetch agent's photo if on SinglePropertyPage ------------------- */
+	useEffect(() => {
+		if (!matchSingleProperty) {
+			// Not on a single-property page => reset
+			setAgentPhoto(null);
+			setPropertyDetails(null);
+			return;
+		}
+
+		// If matched, get propertyId and fetch property details
+		const { propertyId } = matchSingleProperty.params;
+
+		const fetchAgentPhoto = async () => {
+			try {
+				const res = await axios.get(
+					`${process.env.REACT_APP_API_URL}/property-details/${propertyId}`
+				);
+				// If the property’s "belongsTo" references an agent with "profilePhoto"
+				const agentProfilePhoto = res?.data?.belongsTo?.profilePhoto;
+				if (agentProfilePhoto) {
+					setAgentPhoto(agentProfilePhoto.url);
+					setPropertyDetails(res.data);
+				} else {
+					setAgentPhoto(null);
+				}
+			} catch (err) {
+				console.error("Error fetching agent photo:", err);
+				setAgentPhoto(null);
+			}
+		};
+
+		fetchAgentPhoto();
+	}, [matchSingleProperty]);
+
+	/* ------------------- Identify the current user for chat (if any) ------------------- */
 	useEffect(() => {
 		const userFromLocal = JSON.parse(localStorage.getItem("user"));
 		if (userFromLocal && userFromLocal._id) {
@@ -125,7 +211,7 @@ const ChatIcon = () => {
 		}
 	}, []);
 
-	// Fetch unseen messages count if user is known
+	/* ------------------- Unseen Messages Count + Notification Sound Logic ------------------- */
 	const fetchUnseenMessagesCount = useCallback(async () => {
 		if (!clientId) return;
 		try {
@@ -136,7 +222,6 @@ const ChatIcon = () => {
 		}
 	}, [clientId]);
 
-	// Notification sound
 	const playNotificationSound = useCallback(() => {
 		if (hasInteracted) {
 			const audio = new Audio(notificationSound);
@@ -168,10 +253,8 @@ const ChatIcon = () => {
 
 	// Listen for new messages from server
 	useEffect(() => {
-		const handleNewMessage = (updatedCaseOrMessage) => {
-			// Because the user might have multiple cases, ideally we'd check if it's the same user
-			// For simplicity, just play the sound if the chat window is not open
-			// Then refetch unseen count:
+		const handleNewMessage = () => {
+			// If chat window is not open, play sound + refetch unseen
 			if (!isOpen) {
 				playNotificationSound();
 				fetchUnseenMessagesCount();
@@ -179,26 +262,35 @@ const ChatIcon = () => {
 		};
 
 		socket.on("receiveMessage", handleNewMessage);
-
 		return () => {
 			socket.off("receiveMessage", handleNewMessage);
 		};
 	}, [isOpen, playNotificationSound, fetchUnseenMessagesCount]);
 
+	/* ------------------- Toggle Chat Window ------------------- */
 	const toggleChatWindow = () => {
 		setIsOpen(!isOpen);
-		// When opening the chat, reset local unseen count (locally only)
+		// When opening the chat, reset local unseen count (locally)
 		if (!isOpen) {
 			setUnseenCount(0);
 		}
 	};
 
+	/* --------------------------------- RENDER --------------------------------- */
 	return (
 		<ChatIconWrapper isArabic={chosenLanguage === "Arabic"}>
 			<ChatButtonBox onClick={toggleChatWindow}>
+				{/* Only render the agent’s photo if currently on a SinglePropertyPage AND we have a photo */}
+				{matchSingleProperty && agentPhoto && (
+					<AgentPhotoWrapper>
+						<img src={agentPhoto} alt='Agent Profile' />
+					</AgentPhotoWrapper>
+				)}
+
 				<div className='icon-holder'>
 					<MessageOutlined />
 				</div>
+
 				<div className='chat-text'>
 					<div className='chat-name'>
 						{chosenLanguage === "Arabic" ? "مساعدة" : "Help / Support"}
@@ -217,6 +309,7 @@ const ChatIcon = () => {
 				<ChatWindow
 					closeChatWindow={toggleChatWindow}
 					chosenLanguage={chosenLanguage}
+					propertyDetails={propertyDetails}
 				/>
 			)}
 		</ChatIconWrapper>

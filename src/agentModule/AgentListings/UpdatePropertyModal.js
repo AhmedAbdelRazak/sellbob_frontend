@@ -18,7 +18,9 @@ import { InfoCircleOutlined } from "@ant-design/icons";
 import { isAuthenticated } from "../../auth";
 import { updateProperty } from "../apiAgent";
 import ImageCardMain from "./ImageCardMain";
-import { indianStatesArray } from "../utils";
+
+// Import your closeAreasList from utils
+import { indianStatesArray, closeAreasList } from "../utils";
 
 function generateLocalId() {
 	return "local_" + Math.random().toString(36).slice(2);
@@ -27,6 +29,10 @@ function generateLocalId() {
 const { TextArea } = Input;
 const INDIA_COORDS = { lat: 20.5937, lng: 78.9629 };
 
+/**
+ * For simplicity, these arrays are inline, but you may
+ * import them from `utils` or keep them here.
+ **/
 const propertyTypes = [
 	{ label: "Apartment", value: "apartment" },
 	{ label: "House", value: "house" },
@@ -115,8 +121,14 @@ const UpdatePropertyModal = ({
 	const [propertyAmenities, setPropertyAmenities] = useState([]);
 	const [propertyViews, setPropertyViews] = useState([]);
 	const [closeAreas, setCloseAreas] = useState([]);
-	const [singleCloseArea, setSingleCloseArea] = useState("");
 	const [propertyPhotos, setPropertyPhotos] = useState([]);
+
+	// ---------- NEW FOR CLOSE AREAS (like AddPropertyModal) ----------
+	const [selectedCloseAreaLabel, setSelectedCloseAreaLabel] = useState(""); // from closeAreasList
+	const [customCloseAreaName, setCustomCloseAreaName] = useState(""); // optional custom name
+	const [closeAreaDistance, setCloseAreaDistance] = useState(""); // e.g. '1 mile'
+
+	// ---------- ROOMS ----------
 	const [rooms, setRooms] = useState([]);
 
 	// ---------- MAP FIELDS ----------
@@ -129,7 +141,7 @@ const UpdatePropertyModal = ({
 	const [addressToGeocode, setAddressToGeocode] = useState("");
 	const geocoderRef = useRef(null);
 
-	// Map center & zoom for better UX
+	// Map center & zoom
 	// eslint-disable-next-line
 	const [mapCenter, setMapCenter] = useState(INDIA_COORDS);
 	const [mapZoom, setMapZoom] = useState(5);
@@ -151,7 +163,9 @@ const UpdatePropertyModal = ({
 		value: st.name,
 	}));
 
-	// ---------- 1) Populate from DB ----------
+	/** ------------------------------------------
+	 *   1) Populate from DB on property change
+	 ------------------------------------------ */
 	useEffect(() => {
 		if (!property) return;
 		setIsFillingForm(true);
@@ -182,6 +196,7 @@ const UpdatePropertyModal = ({
 		setCloseAreas(property.closeAreas || []);
 		setPropertyPhotos(property.propertyPhotos || []);
 
+		// rooms
 		if (Array.isArray(property.roomCountDetails)) {
 			const normalizedRooms = property.roomCountDetails.map((r) =>
 				r._id ? r : { ...r, _id: generateLocalId() }
@@ -226,7 +241,9 @@ const UpdatePropertyModal = ({
 		setIsFillingForm(false);
 	}, [property]);
 
-	// ---------- 2) Watch propertyState => build city options ----------
+	/** ------------------------------------------
+	 *   2) Watch propertyState => build city options
+	 ------------------------------------------ */
 	useEffect(() => {
 		if (!propertyState) {
 			setCityOptions([]);
@@ -257,7 +274,9 @@ const UpdatePropertyModal = ({
 		setCustomCityOption(null);
 	}, [propertyState, isFillingForm]);
 
-	// ---------- 3) After city from DB, check recognized or custom ----------
+	/** ------------------------------------------
+	 *   3) After city from DB, check recognized or custom
+	 ------------------------------------------ */
 	useEffect(() => {
 		if (!property || !propertyState) return;
 		if (isFillingForm) return;
@@ -274,6 +293,7 @@ const UpdatePropertyModal = ({
 			(s) => s.name.toLowerCase() === propertyState.toLowerCase()
 		);
 		if (!foundState) {
+			// It's a custom state?
 			setCustomCityOption({
 				label: originalCity,
 				value: originalCity,
@@ -304,6 +324,7 @@ const UpdatePropertyModal = ({
 			setPropertyCity(matchedCity.value);
 			setCustomCityOption(null);
 		} else {
+			// The city is custom, not in majorCities
 			const customOption = { label: originalCity, value: originalCity };
 			setCustomCityOption(customOption);
 			setCityOptions([customOption, ...majorCities]);
@@ -313,7 +334,7 @@ const UpdatePropertyModal = ({
 		setIsFillingForm(false);
 	}, [property, propertyState, isFillingForm]);
 
-	// ---------- HANDLERS ----------
+	/** ------------- Handlers ------------- */
 	const handleStateChange = (val) => {
 		setPropertyState(val);
 		if (!val) {
@@ -421,19 +442,44 @@ const UpdatePropertyModal = ({
 		message.success("Manual coordinates set!");
 	};
 
-	// ---------- CLOSE AREAS ----------
+	// ---------- NEW: CLOSE AREAS Approach ----------
 	const handleAddCloseArea = () => {
-		if (!singleCloseArea.trim()) {
-			return message.error("Please enter a close area");
+		// Must have at least one of (selectedCloseAreaLabel / customCloseAreaName)
+		if (!selectedCloseAreaLabel && !customCloseAreaName.trim()) {
+			return message.error("Please select or enter a close area name.");
 		}
-		setCloseAreas([...closeAreas, singleCloseArea]);
-		setSingleCloseArea("");
+		if (!closeAreaDistance.trim()) {
+			return message.error("Please enter distance (e.g. '1 mile').");
+		}
+
+		// Build final label:
+		// If user typed 'Hamada' and chose 'School', => "Hamada School"
+		// else if user didn't type anything => label only => "School"
+		const finalLabel = customCloseAreaName.trim()
+			? `${customCloseAreaName.trim()} ${selectedCloseAreaLabel}`
+			: selectedCloseAreaLabel;
+
+		// If user didn't pick from dropdown either => fallback to custom only
+		let labelToUse = finalLabel.trim();
+		if (!labelToUse) {
+			labelToUse = customCloseAreaName.trim();
+		}
+
+		const finalString = `${labelToUse} - ${closeAreaDistance} from property`;
+		setCloseAreas((prev) => [...prev, finalString]);
+
+		// Reset
+		setSelectedCloseAreaLabel("");
+		setCustomCloseAreaName("");
+		setCloseAreaDistance("");
 	};
 
 	const handleRemoveCloseArea = (idx) => {
-		const updated = [...closeAreas];
-		updated.splice(idx, 1);
-		setCloseAreas(updated);
+		setCloseAreas((prev) => {
+			const updated = [...prev];
+			updated.splice(idx, 1);
+			return updated;
+		});
 	};
 
 	// ---------- ROOMS ----------
@@ -455,9 +501,11 @@ const UpdatePropertyModal = ({
 	};
 
 	const handleRemoveRoom = (idx) => {
-		const updated = [...rooms];
-		updated.splice(idx, 1);
-		setRooms(updated);
+		setRooms((prev) => {
+			const updated = [...prev];
+			updated.splice(idx, 1);
+			return updated;
+		});
 	};
 
 	// ---------- SUBMIT ----------
@@ -490,6 +538,7 @@ const UpdatePropertyModal = ({
 			return message.error("About property (English) is required.");
 		}
 
+		// Build the updated property object
 		const updatedProperty = {
 			propertyName,
 			propertyName_OtherLanguage,
@@ -532,6 +581,8 @@ const UpdatePropertyModal = ({
 		setServerError("");
 
 		try {
+			// The property might belong to agent.
+			// Ensure we have an ID to pass.
 			const belongsToId =
 				property.belongsTo?._id || property.belongsTo || user._id;
 
@@ -618,7 +669,7 @@ const UpdatePropertyModal = ({
 				<Col span={12}>
 					<label style={{ display: "block" }}>
 						Property Name (Hindi)
-						<Tooltip title='If you prefer to also name the property in Hindi'>
+						<Tooltip title='If you prefer also naming the property in Hindi'>
 							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 						</Tooltip>
 					</label>
@@ -654,7 +705,7 @@ const UpdatePropertyModal = ({
 				<Col span={8}>
 					<label style={{ display: "block" }}>
 						City
-						<Tooltip title='Pick one of the major cities or "Other" to type manually.'>
+						<Tooltip title='Pick one of the major cities or "Other" to type in manually.'>
 							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
 						</Tooltip>
 						<span style={{ color: "red", marginLeft: 4 }}>*</span>
@@ -931,25 +982,68 @@ const UpdatePropertyModal = ({
 				</Col>
 			</Row>
 
+			{/* CLOSE AREAS (NEW SUBSTRING APPROACH) */}
 			<SectionTitle style={{ marginTop: 24 }}>
 				Close Areas (Optional)
 			</SectionTitle>
 			<Row gutter={[16, 16]} style={{ marginBottom: 12 }}>
-				<Col span={16}>
+				<Col span={8}>
+					<label style={{ display: "block" }}>
+						Close Area Type
+						<Tooltip title='e.g. School, Hospital, etc. from utils'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
+					</label>
+					<Select
+						style={{ width: "100%" }}
+						showSearch
+						placeholder='Select e.g. "School"'
+						value={selectedCloseAreaLabel || undefined}
+						onChange={(val) => setSelectedCloseAreaLabel(val)}
+						optionFilterProp='label'
+						allowClear
+					>
+						{closeAreasList.map((item) => (
+							<Select.Option key={item.label} value={item.label}>
+								{item.label}
+							</Select.Option>
+						))}
+					</Select>
+				</Col>
+				<Col span={8}>
+					<label style={{ display: "block" }}>
+						Custom Name (optional)
+						<Tooltip title='If you want a custom name, e.g. "Hamada"'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
+					</label>
 					<Input
-						placeholder='e.g. Nearby School'
-						value={singleCloseArea}
-						onChange={(e) => setSingleCloseArea(e.target.value)}
+						placeholder='e.g. "Mumbai Airport"'
+						value={customCloseAreaName}
+						onChange={(e) => setCustomCloseAreaName(e.target.value)}
+					/>
+				</Col>
+				<Col span={8}>
+					<label style={{ display: "block" }}>
+						Distance / Info
+						<Tooltip title='e.g. "1 mile", "2.5 km", etc.'>
+							<InfoCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
+						</Tooltip>
+					</label>
+					<Input
+						placeholder='e.g. "1 mile"'
+						value={closeAreaDistance}
+						onChange={(e) => setCloseAreaDistance(e.target.value)}
 						onPressEnter={(e) => {
 							e.preventDefault();
 							handleAddCloseArea();
 						}}
 					/>
 				</Col>
-				<Col span={8}>
-					<Button style={{ width: "100%" }} onClick={handleAddCloseArea}>
-						Add Close Area
-					</Button>
+			</Row>
+			<Row>
+				<Col span={24} style={{ textAlign: "right", marginBottom: 10 }}>
+					<Button onClick={handleAddCloseArea}>Add Close Area</Button>
 				</Col>
 			</Row>
 			{closeAreas.length > 0 && (
@@ -970,6 +1064,7 @@ const UpdatePropertyModal = ({
 				</CloseAreasList>
 			)}
 
+			{/* ROOM DETAILS */}
 			<SectionTitle style={{ marginTop: 24 }}>Room Details</SectionTitle>
 			{rooms.map((room, idx) => (
 				<div
@@ -985,7 +1080,7 @@ const UpdatePropertyModal = ({
 						<Col span={8}>
 							<label style={{ display: "block" }}>
 								Room Type
-								<Tooltip title='e.g. "living room", "bedroom", "kitchen", etc.'>
+								<Tooltip title='e.g. "living room", "bedroom", etc.'>
 									<InfoCircleOutlined
 										style={{ marginLeft: 8, color: "#999" }}
 									/>
@@ -1184,7 +1279,7 @@ const UpdatePropertyModal = ({
 				+ Add Room
 			</Button>
 
-			{/* LOCATION COORDS */}
+			{/* LOCATION COORDINATES */}
 			<SectionTitle style={{ marginTop: 24 }}>
 				Location Coordinates
 			</SectionTitle>
@@ -1202,7 +1297,7 @@ const UpdatePropertyModal = ({
 						step='0.000001'
 						value={markerLat}
 						onChange={(e) => {
-							const val = e.target.value;
+							const val = Number(e.target.value);
 							setMarkerLat(val);
 							setMapCenter((c) => ({ ...c, lat: val }));
 						}}
@@ -1221,7 +1316,7 @@ const UpdatePropertyModal = ({
 						step='0.000001'
 						value={markerLng}
 						onChange={(e) => {
-							const val = e.target.value;
+							const val = Number(e.target.value);
 							setMarkerLng(val);
 							setMapCenter((c) => ({ ...c, lng: val }));
 						}}
@@ -1235,7 +1330,6 @@ const UpdatePropertyModal = ({
 			</Row>
 
 			{/* MAP MODAL */}
-
 			{process.env.REACT_APP_MAPS_API_KEY &&
 				parseFloat(markerLat) &&
 				parseFloat(markerLng) && (
@@ -1298,7 +1392,6 @@ const UpdatePropertyModal = ({
 								onClick={handleMapClick}
 								options={{ disableDoubleClickZoom: false }}
 							>
-								{/* This Marker uses parseFloat just like your SingleHotel example */}
 								<MarkerF
 									position={{
 										lat: parseFloat(markerLat) || INDIA_COORDS.lat,

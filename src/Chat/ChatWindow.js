@@ -14,6 +14,8 @@ import socket from "../socket";
 import EmojiPicker from "emoji-picker-react";
 import { UploadOutlined, CloseOutlined } from "@ant-design/icons";
 import StarRatings from "react-star-ratings";
+import { isAuthenticated } from "../auth";
+import { useRouteMatch } from "react-router-dom"; // <-- import route matching
 
 const { Option } = Select;
 
@@ -22,16 +24,20 @@ const INQUIRY_TYPES = [
 	{ value: "Talk with Platform Admin", label: "Talk with Platform Admin" },
 	{ value: "Talk with Property Agent", label: "Talk with Property Agent" },
 	{ value: "others", label: "Others" },
+	{ value: "reservation", label: "Reservation Inquiry" }, // if needed
 ];
 
-const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
-	const userFromLocal = JSON.parse(localStorage.getItem("user")) || {};
+const ChatWindow = ({ closeChatWindow, chosenLanguage, propertyDetails }) => {
+	// For route matching: Are we on /single-property/...?
+	const matchSingleProperty = useRouteMatch(
+		"/single-property/:state/:slug/:propertyId"
+	);
 
 	// Basic states
 	const [activeProperties, setActiveProperties] = useState([]);
 	const [propertyId, setPropertyId] = useState("");
-	const [customerName, setCustomerName] = useState(userFromLocal.name || "");
-	const [customerEmail, setCustomerEmail] = useState(userFromLocal.email || "");
+	const [customerName, setCustomerName] = useState("");
+	const [customerEmail, setCustomerEmail] = useState("");
 	const [inquiryAbout, setInquiryAbout] = useState("");
 	const [otherInquiry, setOtherInquiry] = useState("");
 	const [reservationNumber, setReservationNumber] = useState("");
@@ -51,7 +57,41 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 
 	const messagesEndRef = useRef(null);
 
-	// 1) Load existing chat from localStorage if any
+	/* ------------------------------------------------------------------
+	 * 1) Auto-fill name/email/phone + property details ONCE if relevant
+	 * ------------------------------------------------------------------ */
+	useEffect(() => {
+		// Grab user data from localStorage if any
+		const userFromLocal = JSON.parse(localStorage.getItem("user")) || {};
+
+		// Also check if user isAuthenticated
+		const authResponse = isAuthenticated();
+		const userFromAuth = authResponse ? authResponse.user : null;
+
+		// Figure out the best name to use
+		const localName = userFromLocal?.name || userFromAuth?.name || "";
+		// Figure out the best email or phone
+		const localEmailOrPhone =
+			userFromLocal?.email ||
+			userFromLocal?.phone ||
+			userFromAuth?.email ||
+			userFromAuth?.phone ||
+			"";
+
+		// Pre-populate if we have them
+		if (localName) setCustomerName(localName);
+		if (localEmailOrPhone) setCustomerEmail(localEmailOrPhone);
+
+		// Only if we are on a single-property route && propertyDetails is present
+		if (matchSingleProperty && propertyDetails?._id) {
+			setPropertyId(propertyDetails._id);
+			setInquiryAbout("Talk with Property Agent");
+		}
+	}, [matchSingleProperty, propertyDetails]);
+
+	/* ------------------------------------------------------------------
+	 * 2) If there's an ongoing chat in localStorage, restore it
+	 * ------------------------------------------------------------------ */
 	useEffect(() => {
 		const savedChat = JSON.parse(localStorage.getItem("currentChat")) || null;
 		if (savedChat && savedChat.caseId) {
@@ -68,7 +108,9 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 		}
 	}, []);
 
-	// 2) Persist chat to localStorage whenever relevant fields change
+	/* ------------------------------------------------------------------
+	 * 3) Persist chat to localStorage whenever relevant fields change
+	 * ------------------------------------------------------------------ */
 	useEffect(() => {
 		if (caseId) {
 			const saveChat = {
@@ -97,7 +139,9 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 		submitted,
 	]);
 
-	// 3) Fetch active properties on mount
+	/* ------------------------------------------------------------------
+	 * 4) Fetch active properties on mount
+	 * ------------------------------------------------------------------ */
 	useEffect(() => {
 		const fetchProperties = async () => {
 			try {
@@ -110,7 +154,9 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 		fetchProperties();
 	}, []);
 
-	// 4) Socket events: new messages, closeCase, typing, messageDeleted
+	/* ------------------------------------------------------------------
+	 * 5) Socket events: new messages, closeCase, typing, messageDeleted
+	 * ------------------------------------------------------------------ */
 	useEffect(() => {
 		const handleReceiveMessage = (updatedCaseOrMessage) => {
 			// If the server is emitting the ENTIRE updatedCase:
@@ -120,7 +166,6 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 					markMessagesAsSeen(caseId);
 				}
 			}
-			// else if it is a single message, you could handle that too
 		};
 
 		const handleCloseCase = (result) => {
@@ -162,7 +207,9 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 		};
 	}, [caseId, customerName]);
 
-	// 5) Once we have a caseId, join the Socket.IO room
+	/* ------------------------------------------------------------------
+	 * 6) Once we have a caseId, join the Socket.IO room
+	 * ------------------------------------------------------------------ */
 	useEffect(() => {
 		if (caseId) {
 			socket.emit("joinRoom", { caseId });
@@ -174,7 +221,9 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 		};
 	}, [caseId]);
 
-	// 6) Mark messages as seen
+	/* ------------------------------------------------------------------
+	 * 7) Mark messages as seen
+	 * ------------------------------------------------------------------ */
 	const markMessagesAsSeen = async (id) => {
 		try {
 			await updateSeenByCustomer(id);
@@ -183,12 +232,16 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 		}
 	};
 
-	// 7) Scroll to bottom whenever messages OR typing status changes
+	/* ------------------------------------------------------------------
+	 * 8) Scroll to bottom whenever messages OR typing status changes
+	 * ------------------------------------------------------------------ */
 	useEffect(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-	}, [messages, typingStatus]); // <-- ADDED typingStatus here
+	}, [messages, typingStatus]);
 
-	// 8) Fetch a case from DB
+	/* ------------------------------------------------------------------
+	 * 9) Fetch a case from DB
+	 * ------------------------------------------------------------------ */
 	const fetchSupportCase = async (id) => {
 		try {
 			const supportCase = await getSupportCaseById(id);
@@ -200,7 +253,9 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 		}
 	};
 
-	/** Client starts a new support case */
+	/* ==================================================================
+	 * CREATE A NEW SUPPORT CASE
+	 * ================================================================== */
 	const handleSubmit = async () => {
 		if (!customerName.trim() || !customerEmail.trim()) {
 			message.error("Please fill in your name and email/phone correctly.");
@@ -210,6 +265,7 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 		const phoneRegex = /^[0-9]{10,15}$/;
 		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+		// Must match either phone or email pattern
 		if (!emailRegex.test(customerEmail) && !phoneRegex.test(customerEmail)) {
 			message.error("Please enter a valid email address or phone number.");
 			return;
@@ -238,7 +294,7 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 			setCaseId(res._id);
 			setSubmitted(true);
 
-			// Immediately show the conversation from DB (or a system message)
+			// Immediately show any conversation from DB or a system message
 			if (res?.conversation) {
 				setMessages(res.conversation);
 			} else {
@@ -256,12 +312,14 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 		}
 	};
 
-	// Send a new message
+	/* ==================================================================
+	 * SEND MESSAGE
+	 * ================================================================== */
 	const handleSendMessage = async () => {
 		if (!newMessage.trim()) return;
 
 		const msgData = {
-			caseId, // must include so we can 'joinRoom' and do real-time
+			caseId,
 			messageBy: {
 				customerName,
 				customerEmail,
@@ -285,12 +343,16 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 		}
 	};
 
-	// Closing chat => rating
+	/* ==================================================================
+	 * CLOSE CHAT => SHOW RATING
+	 * ================================================================== */
 	const handleCloseChat = () => {
 		setIsRatingVisible(true);
 	};
 
-	// Rate service
+	/* ==================================================================
+	 * RATE SERVICE
+	 * ================================================================== */
 	const handleRateService = async (starVal) => {
 		try {
 			await updateSupportCase(caseId, {
@@ -307,7 +369,9 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 		}
 	};
 
-	// Skip rating
+	/* ==================================================================
+	 * SKIP RATING
+	 * ================================================================== */
 	const handleSkipRating = async () => {
 		try {
 			await updateSupportCase(caseId, {
@@ -322,7 +386,9 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 		}
 	};
 
-	// Typing
+	/* ==================================================================
+	 * TYPING
+	 * ================================================================== */
 	const handleInputChange = (e) => {
 		setNewMessage(e.target.value);
 		if (caseId) {
@@ -336,19 +402,25 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 		}
 	};
 
-	// Emoji
+	/* ==================================================================
+	 * EMOJI PICKER
+	 * ================================================================== */
 	const handleEmojiClick = (emojiObject) => {
 		setNewMessage((prev) => prev + emojiObject.emoji);
 		setShowEmojiPicker(false);
 	};
 
-	// File uploads
-	const handleFileChange = ({ fileList }) => {
-		setFileList(fileList);
-		// You would also handle sending to the server, etc.
+	/* ==================================================================
+	 * FILE UPLOADS
+	 * ================================================================== */
+	const handleFileChange = ({ fileList: newFileList }) => {
+		setFileList(newFileList);
+		// If you want to actually upload, handle that server-side, etc.
 	};
 
-	// Make links clickable
+	/* ==================================================================
+	 * UTILS
+	 * ================================================================== */
 	const renderLinks = useCallback((txt) => {
 		const urlRegex = /(https?:\/\/[^\s]+)/g;
 		return txt.split(urlRegex).map((part, i) => {
@@ -363,11 +435,13 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 		});
 	}, []);
 
-	// Distinguish user’s own messages vs. agent
 	const isMine = (msg) => {
 		return msg.messageBy?.customerEmail === customerEmail;
 	};
 
+	/* ==================================================================
+     RENDER
+  ================================================================== */
 	return (
 		<ChatWindowWrapper>
 			<Header>
@@ -405,6 +479,7 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 				</RatingContainer>
 			) : submitted ? (
 				<>
+					{/* --------------- Chat in progress --------------- */}
 					<MessagesSection>
 						{messages.map((msg, idx) => {
 							const mine = isMine(msg);
@@ -463,6 +538,7 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 								<Button icon={<UploadOutlined />} />
 							</Upload>
 						</ChatInputContainer>
+
 						<Button
 							type='primary'
 							block
@@ -471,6 +547,7 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 						>
 							{chosenLanguage === "Arabic" ? "إرسال" : "Send"}
 						</Button>
+
 						<Button
 							type='default'
 							block
@@ -483,58 +560,98 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 					</Form.Item>
 				</>
 			) : (
-				// If not submitted => show initial form
+				// --------------- Initial Form ---------------
 				<Form layout='vertical' onFinish={handleSubmit}>
+					{/* Full Name */}
 					<Form.Item label='Full Name' required>
 						<Input
 							value={customerName}
 							onChange={(e) => setCustomerName(e.target.value)}
 							placeholder='FirstName LastName'
+							disabled={!!customerName} // if there's a pre-populated name, disable
+							style={
+								customerName
+									? { background: "#f5f5f5", color: "#666" }
+									: undefined
+							}
 						/>
 					</Form.Item>
 
+					{/* Email or Phone */}
 					<Form.Item label='Email or Phone' required>
 						<Input
 							value={customerEmail}
 							onChange={(e) => setCustomerEmail(e.target.value)}
 							placeholder='client@gmail.com or 1234567890'
+							disabled={!!customerEmail} // if there's a pre-populated email/phone, disable
+							style={
+								customerEmail
+									? { background: "#f5f5f5", color: "#666" }
+									: undefined
+							}
 						/>
 					</Form.Item>
 
-					<Form.Item label='Select Property'>
-						<Select
-							allowClear
-							showSearch
-							placeholder='(Optional) Choose a Property or leave empty to chat with Admin'
-							value={propertyId || undefined}
-							onChange={(value) => setPropertyId(value)}
-							filterOption={(input, option) =>
-								option.children.toLowerCase().includes(input.toLowerCase())
-							}
-						>
-							<Option value=''>Talk with Platform Admin</Option>
-							{activeProperties.map((prop) => (
-								<Option key={prop._id} value={prop._id}>
-									{prop.propertyName}
-								</Option>
-							))}
-						</Select>
-					</Form.Item>
+					{/* If user is on single-property route & propertyDetails => read-only property */}
+					{matchSingleProperty && propertyDetails && propertyDetails._id ? (
+						<Form.Item label='Property'>
+							<Input
+								value={
+									propertyDetails.propertyName || "Talk with Property Agent"
+								}
+								disabled
+								style={{ background: "#f5f5f5", color: "#666" }}
+							/>
+						</Form.Item>
+					) : (
+						/* Otherwise show the dropdown of active properties */
+						<Form.Item label='Select Property'>
+							<Select
+								allowClear
+								showSearch
+								placeholder='(Optional) Choose a Property or chat with Admin'
+								value={propertyId || undefined}
+								onChange={(value) => setPropertyId(value)}
+								filterOption={(input, option) =>
+									option.children.toLowerCase().includes(input.toLowerCase())
+								}
+							>
+								<Option value=''>Talk with Platform Admin</Option>
+								{activeProperties.map((prop) => (
+									<Option key={prop._id} value={prop._id}>
+										{prop.propertyName}
+									</Option>
+								))}
+							</Select>
+						</Form.Item>
+					)}
 
-					<Form.Item label='Inquiry About' required>
-						<Select
-							placeholder='Choose your inquiry'
-							value={inquiryAbout}
-							onChange={setInquiryAbout}
-						>
-							{INQUIRY_TYPES.map((opt) => (
-								<Option key={opt.value} value={opt.value}>
-									{opt.label}
-								</Option>
-							))}
-						</Select>
-					</Form.Item>
+					{/* If on SinglePropertyPage => "Talk with Property Agent" forced */}
+					{matchSingleProperty && propertyDetails && propertyDetails._id ? (
+						<Form.Item label='Inquiry About' required>
+							<Input
+								value='Talk with Property Agent'
+								disabled
+								style={{ background: "#f5f5f5", color: "#666" }}
+							/>
+						</Form.Item>
+					) : (
+						<Form.Item label='Inquiry About' required>
+							<Select
+								placeholder='Choose your inquiry'
+								value={inquiryAbout}
+								onChange={setInquiryAbout}
+							>
+								{INQUIRY_TYPES.map((opt) => (
+									<Option key={opt.value} value={opt.value}>
+										{opt.label}
+									</Option>
+								))}
+							</Select>
+						</Form.Item>
+					)}
 
+					{/* 'others' => text input, 'reservation' => reservationNumber */}
 					{inquiryAbout === "others" && (
 						<Form.Item label='Please specify your inquiry'>
 							<Input
@@ -554,7 +671,7 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage }) => {
 					)}
 
 					<Button type='primary' htmlType='submit' block>
-						Start Chat
+						{chosenLanguage === "Arabic" ? "بدء المحادثة" : "Start Chat"}
 					</Button>
 				</Form>
 			)}
@@ -623,24 +740,6 @@ const MessageBubble = styled.div`
 	}
 `;
 
-const ChatInputContainer = styled.div`
-	display: flex;
-	gap: 4px;
-	textarea {
-		flex: 1;
-		resize: none;
-	}
-`;
-
-const EmojiPickerWrapper = styled.div`
-	position: absolute;
-	bottom: 60px;
-	right: 20px;
-	z-index: 9999;
-	background: #fff;
-	box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-`;
-
 const typingBounce = keyframes`
   0%, 80%, 100% { transform: scale(0); }
   40% { transform: scale(1.0); }
@@ -680,4 +779,22 @@ const RatingContainer = styled.div`
 		justify-content: center;
 		gap: 10px;
 	}
+`;
+
+const ChatInputContainer = styled.div`
+	display: flex;
+	gap: 4px;
+	textarea {
+		flex: 1;
+		resize: none;
+	}
+`;
+
+const EmojiPickerWrapper = styled.div`
+	position: absolute;
+	bottom: 60px;
+	right: 20px;
+	z-index: 9999;
+	background: #fff;
+	box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
 `;

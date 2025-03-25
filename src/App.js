@@ -34,6 +34,7 @@ import WebsiteMain from "./adminModule/Website/WebsiteMain";
 import CustomerServiceMain from "./adminModule/CustomerService/CustomerServiceMain";
 import OverallAppointmentsMain from "./adminModule/Appointments/OverallAppointmentsMain";
 import OverallSubscriptionsMain from "./adminModule/Subscriptions/OverallSubscriptionsMain";
+import AccountUpdateMain from "./agentModule/AccountUpdate/AccountUpdateMain";
 
 const App = () => {
 	const location = useLocation(); // from react-router-dom
@@ -111,10 +112,17 @@ const App = () => {
 						exact
 						component={AppointmentManagementMain}
 					/>
+
 					<AgentRoute
 						path='/agent/customer-service'
 						exact
 						component={CustomerServiceAgentMain}
+					/>
+
+					<AgentRoute
+						path='/agent/account-update'
+						exact
+						component={AccountUpdateMain}
 					/>
 
 					{/* Admin Routes */}

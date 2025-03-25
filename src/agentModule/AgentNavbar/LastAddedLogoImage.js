@@ -1,9 +1,14 @@
 import styled from "styled-components";
 import { Link } from "react-router-dom";
+import { useCartContext } from "../../cart_context";
 
 const LastAddedLogoImage = () => {
+	const { websiteSetup } = useCartContext();
+
 	var logoUrl =
-		"https://res.cloudinary.com/infiniteapps/image/upload/v1640547562/Infinite-Apps/MyLogo_p0bqjs.jpg";
+		websiteSetup && websiteSetup.sellbobLogo && websiteSetup.sellbobLogo.url
+			? websiteSetup.sellbobLogo.url
+			: "https://res.cloudinary.com/infiniteapps/image/upload/v1640547562/Infinite-Apps/MyLogo_p0bqjs.jpg";
 
 	return (
 		<>

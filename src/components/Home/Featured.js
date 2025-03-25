@@ -20,9 +20,13 @@ const formatPrice = (price) => {
 	return price.toLocaleString("en-US"); // e.g. 145,000,000
 };
 
-// Helper to capitalize currency (e.g., "rupee" -> "Rupee")
+// Enhanced helper for currency:
+// Show "₹" if currency is "rupee" (any case), else capitalize it
 const formatCurrency = (currency = "") => {
 	if (!currency) return "";
+	if (currency.toLowerCase() === "rupee") {
+		return "₹";
+	}
 	return currency[0].toUpperCase() + currency.slice(1).toLowerCase();
 };
 
@@ -249,6 +253,25 @@ const FeaturedWrapper = styled.section`
 		margin: 0 -5px;
 	}
 
+	/* 
+    =========================================
+    2) MAKE ALL SLIDES (CARDS) THE SAME HEIGHT
+    ========================================= 
+  */
+	.slider-container .slick-track {
+		display: flex !important; /* Force slick track into flex container */
+		align-items: stretch !important;
+	}
+	.slider-container .slick-slide {
+		display: flex !important; /* Let each slide be a flex item */
+		align-items: stretch !important;
+		height: auto !important; /* Override slick's inline height */
+	}
+	.slider-container .slick-slide > div {
+		display: flex;
+		width: 100%;
+	}
+
 	/* ============== Property Card ============== */
 	.property-card {
 		background: var(--neutral-light);
@@ -256,10 +279,14 @@ const FeaturedWrapper = styled.section`
 		overflow: hidden;
 		box-shadow: var(--box-shadow-light);
 		transition: var(--main-transition);
+		min-height: 420px;
+
+		/* 
+      Make the .property-card also a flex container 
+      so it stretches evenly, guaranteeing equal height.
+    */
 		display: flex;
 		flex-direction: column;
-		justify-content: flex-start;
-		align-items: stretch;
 
 		/* Capitalize all texts inside the card */
 		text-transform: capitalize;
@@ -298,12 +325,15 @@ const FeaturedWrapper = styled.section`
 		.property-content {
 			padding: 1rem;
 			cursor: pointer;
+			/* If you want the content to fill available vertical space, 
+         you can optionally do: flex: 1; 
+      */
 
 			h3 {
 				color: var(--text-color-dark);
 				margin-bottom: 0.5rem;
 				font-size: 1.2rem;
-				/* text-transform is inherited from .property-card if you prefer */
+				/* text-transform is inherited from .property-card */
 			}
 
 			.property-price {
@@ -335,5 +365,14 @@ const FeaturedWrapper = styled.section`
 	/* Remove focus outline on slides */
 	.slick-slide {
 		outline: none;
+	}
+
+	@media (max-width: 600px) {
+		.property-content {
+			h3 {
+				font-size: 0.95rem !important;
+				font-weight: bold;
+			}
+		}
 	}
 `;

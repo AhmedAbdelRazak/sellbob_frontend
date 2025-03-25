@@ -28,7 +28,9 @@ const CampaignsMain = () => {
 				</div>
 
 				<div className='otherContentWrapper'>
-					<div className='container-wrapper'>In Progress....</div>
+					<div className='container-wrapper'>
+						No Campaigns Are Assigned To Your Account Yet...
+					</div>
 				</div>
 			</div>
 		</CampaignsMainWrapper>

@@ -1,3 +1,16 @@
+import {
+	ThunderboltOutlined,
+	CoffeeOutlined,
+	ReadOutlined,
+	MedicineBoxOutlined,
+	ShopOutlined,
+	GatewayOutlined,
+	CarTwoTone,
+	HeatMapOutlined,
+	PropertySafetyTwoTone,
+} from "@ant-design/icons";
+import { FaPlane, FaTrain } from "react-icons/fa";
+
 export const indianStatesArray = [
 	{
 		name: "Andhra Pradesh",
@@ -2440,5 +2453,84 @@ export const indianStatesArray = [
 			},
 		],
 		districts: ["Puducherry", "Karaikal", "Mahe", "Yanam"],
+	},
+];
+
+export const closeAreasList = [
+	{
+		label: "School",
+		icon: <ReadOutlined style={{ color: "#52c41a" }} />,
+	},
+	{
+		label: "Hospital",
+		icon: <MedicineBoxOutlined style={{ color: "#eb2f96" }} />,
+	},
+	{
+		label: "Clinic",
+		icon: <MedicineBoxOutlined style={{ color: "#eb2f96" }} />,
+	},
+	{
+		label: "Gym",
+		icon: <ThunderboltOutlined style={{ color: "#fa8c16" }} />,
+	},
+	{
+		label: "Park",
+		icon: <CoffeeOutlined style={{ color: "#389e0d" }} />,
+	},
+	{
+		label: "Mall",
+		icon: <ShopOutlined style={{ color: "#1890ff" }} />,
+	},
+	{
+		label: "Restaurant",
+		icon: <CoffeeOutlined style={{ color: "#fa541c" }} />,
+	},
+
+	{
+		label: "Pharmacy",
+		icon: <MedicineBoxOutlined style={{ color: "#eb2f96" }} />,
+	},
+	{
+		label: "University",
+		icon: <ReadOutlined style={{ color: "#52c41a" }} />,
+	},
+	{
+		label: "Gas Station",
+		icon: <GatewayOutlined style={{ color: "darkred" }} />,
+	},
+
+	{
+		label: "Bus Station",
+		icon: <CarTwoTone style={{ color: "darkblue" }} />,
+	},
+
+	{
+		label: "Train Station",
+		icon: <FaTrain style={{ color: "darkblue" }} />,
+	},
+
+	{
+		label: "Nursing",
+		icon: <HeatMapOutlined style={{ color: "darkyellow" }} />,
+	},
+
+	{
+		label: "Nurse",
+		icon: <HeatMapOutlined style={{ color: "darkyellow" }} />,
+	},
+
+	{
+		label: "Nursery",
+		icon: <HeatMapOutlined style={{ color: "darkyellow" }} />,
+	},
+
+	{
+		label: "Airport",
+		icon: <FaPlane style={{ color: "darkgrey" }} />,
+	},
+
+	{
+		label: "District",
+		icon: <PropertySafetyTwoTone style={{ color: "darkgrey" }} />,
 	},
 ];

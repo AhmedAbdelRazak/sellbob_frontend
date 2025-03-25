@@ -44,16 +44,16 @@ body {
 	/* ORIGINAL ROOT VARIABLE NAMES WITH NEW SHADES */
 	/* --------------------------------- */
 
-	--primaryBlue: #1f3a52; /* Replacing #20212c with a slightly richer blue */
-	--primaryBlueDarker: #17293b; /* Replacing #1e2332 with a darker shade */
-	--orangeDark: #6f2d00; /* Replacing #501500 with a deeper warm color */
-	--orangeLight: #ffe4cc; /* Replacing #ffe3d9 with a more peachy neutral */
-	--mainGrey: #f8f8f8; /* Replacing #fafafa with subtle off-white */
-	--darkGrey: #5a5a5a; /* Replacing #5f5e5e with a new grey tone */
-	--mainWhite: #ffffff; /* Keep white */
-	--mainBlack: #222222; /* Keep black */
-	--mainTransition: all 0.3s ease-in-out; /* keep */
-	--mainSpacing: 0.3rem; /* keep */
+	--primaryBlue: #1f3a52;
+	--primaryBlueDarker: #17293b;
+	--orangeDark: #6f2d00;
+	--orangeLight: #ffe4cc;
+	--mainGrey: #f8f8f8;
+	--darkGrey: #5a5a5a;
+	--mainWhite: #ffffff;
+	--mainBlack: #222222;
+	--mainTransition: all 0.3s ease-in-out;
+	--mainSpacing: 0.3rem;
 
 	/* Primary Colors */
 	--primary-color: var(--primaryBlue);

@@ -365,3 +365,71 @@ export const deleteAppointment = (userId, token, appointmentId) => {
 		.then((res) => res.json())
 		.catch((err) => console.error("Error deleting appointment:", err));
 };
+
+export const getSingleUser = async (userIdToUpdate, userId, token) => {
+	try {
+		const res = await fetch(
+			`${process.env.REACT_APP_API_URL}/account-data/${userIdToUpdate}/${userId}`,
+			{
+				method: "GET",
+				headers: {
+					Accept: "application/json",
+					Authorization: `Bearer ${token}`,
+				},
+			}
+		);
+		return await res.json();
+	} catch (err) {
+		console.error(err);
+		return { error: "Failed to fetch user data." };
+	}
+};
+
+// PUT user data update (name, email, phone, password, etc.)
+export const updateUserProfile = async (
+	targetUserId,
+	userId,
+	token,
+	updatePayload
+) => {
+	try {
+		const res = await fetch(
+			`${process.env.REACT_APP_API_URL}/user-account/${targetUserId}/${userId}`,
+			{
+				method: "PUT",
+				headers: {
+					Accept: "application/json",
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify(updatePayload),
+			}
+		);
+		return await res.json();
+	} catch (err) {
+		console.error(err);
+		return { error: "Failed to update user." };
+	}
+};
+
+// PUT single profile photo
+export const uploadProfilePhoto = async (userId, token, bodyData) => {
+	try {
+		const res = await fetch(
+			`${process.env.REACT_APP_API_URL}/user/profile-photo/${userId}`,
+			{
+				method: "PUT",
+				headers: {
+					Accept: "application/json",
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify(bodyData),
+			}
+		);
+		return await res.json();
+	} catch (err) {
+		console.error(err);
+		return { error: "Failed to upload profile photo." };
+	}
+};

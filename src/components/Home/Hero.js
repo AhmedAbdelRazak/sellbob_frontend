@@ -70,12 +70,13 @@ const Hero = ({ websiteSetup }) => {
 export default Hero;
 
 const HeroSection = styled.section`
-	width: 67%;
+	width: 70%;
 	margin: 0 auto;
 
 	@media (max-width: 768px) {
 		width: 100%;
 		height: auto;
+
 		/* If you want a 1:1 aspect ratio on small screens, uncomment this:
        aspect-ratio: 1/1;
     */
@@ -158,6 +159,7 @@ const Slide = styled.div`
 	position: relative;
 	width: 100%;
 	height: 100%;
+	max-height: 700px !important;
 
 	@media (max-width: 768px) {
 		/* If you need a fixed aspect ratio on small screens, uncomment:
@@ -168,8 +170,11 @@ const Slide = styled.div`
 
 const BannerImage = styled.img`
 	width: 100%;
-	height: 100%;
 	object-fit: cover;
+
+	@media (max-width: 600px) {
+		min-height: 350px !important;
+	}
 `;
 
 const Placeholder = styled.div`
