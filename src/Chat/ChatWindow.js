@@ -82,7 +82,7 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage, propertyDetails }) => {
 		if (localName) setCustomerName(localName);
 		if (localEmailOrPhone) setCustomerEmail(localEmailOrPhone);
 
-		// Only if we are on a single-property route && propertyDetails is present
+		// If we are on a single-property route & have propertyDetails => auto-fill
 		if (matchSingleProperty && propertyDetails?._id) {
 			setPropertyId(propertyDetails._id);
 			setInquiryAbout("Talk with Property Agent");
@@ -440,8 +440,8 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage, propertyDetails }) => {
 	};
 
 	/* ==================================================================
-     RENDER
-  ================================================================== */
+	 * RENDER
+	 * ================================================================== */
 	return (
 		<ChatWindowWrapper>
 			<Header>

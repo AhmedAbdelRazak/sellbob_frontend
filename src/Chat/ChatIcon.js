@@ -157,51 +157,60 @@ const ChatIcon = () => {
 	const [hasInteracted, setHasInteracted] = useState(false);
 	const { chosenLanguage } = useCartContext();
 
-	// If user is authenticated, you store them in localStorage with key "user"
+	// If user is authenticated, we store them in localStorage with key "user"
 	const [clientId, setClientId] = useState(null);
 
 	// If on SinglePropertyPage, fetch the agent's photo:
 	const [agentPhoto, setAgentPhoto] = useState(null);
 	const [propertyDetails, setPropertyDetails] = useState(null);
 
-	// v5 `useRouteMatch` to see if we are on "/single-property/:state/:slug/:propertyId"
+	// v5 useRouteMatch to see if we are on "/single-property/:state/:slug/:propertyId"
 	const matchSingleProperty = useRouteMatch(
 		"/single-property/:state/:slug/:propertyId"
 	);
 
-	/* ------------------- Fetch agent's photo if on SinglePropertyPage ------------------- */
+	/* ------------------------------------------------------------------
+	 * Fetch agent's photo if on SinglePropertyPage (avoid infinite loop)
+	 * ------------------------------------------------------------------ */
 	useEffect(() => {
-		if (!matchSingleProperty) {
-			// Not on a single-property page => reset
+		// If there's NO match, reset and bail out
+		if (!matchSingleProperty?.params?.propertyId) {
 			setAgentPhoto(null);
 			setPropertyDetails(null);
 			return;
 		}
 
-		// If matched, get propertyId and fetch property details
+		// Extract propertyId from the matched route
 		const { propertyId } = matchSingleProperty.params;
+
+		// If we already have propertyDetails for this property, skip refetch
+		if (propertyDetails?._id === propertyId) return;
 
 		const fetchAgentPhoto = async () => {
 			try {
 				const res = await axios.get(
 					`${process.env.REACT_APP_API_URL}/property-details/${propertyId}`
 				);
-				// If the property’s "belongsTo" references an agent with "profilePhoto"
 				const agentProfilePhoto = res?.data?.belongsTo?.profilePhoto;
+
 				if (agentProfilePhoto) {
 					setAgentPhoto(agentProfilePhoto.url);
 					setPropertyDetails(res.data);
 				} else {
 					setAgentPhoto(null);
+					setPropertyDetails(res.data); // or null, up to you
 				}
 			} catch (err) {
 				console.error("Error fetching agent photo:", err);
 				setAgentPhoto(null);
+				setPropertyDetails(null);
 			}
 		};
 
 		fetchAgentPhoto();
-	}, [matchSingleProperty]);
+		// Depend only on the propertyId
+		// eslint-disable-next-line
+	}, [matchSingleProperty?.params?.propertyId, propertyDetails]);
 
 	/* ------------------- Identify the current user for chat (if any) ------------------- */
 	useEffect(() => {
@@ -270,7 +279,7 @@ const ChatIcon = () => {
 	/* ------------------- Toggle Chat Window ------------------- */
 	const toggleChatWindow = () => {
 		setIsOpen(!isOpen);
-		// When opening the chat, reset local unseen count (locally)
+		// When opening the chat, reset local unseen count
 		if (!isOpen) {
 			setUnseenCount(0);
 		}
