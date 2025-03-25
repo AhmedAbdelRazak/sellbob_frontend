@@ -23,8 +23,7 @@ const { Option } = Select;
 const INQUIRY_TYPES = [
 	{ value: "Talk with Platform Admin", label: "Talk with Platform Admin" },
 	{ value: "Talk with Property Agent", label: "Talk with Property Agent" },
-	{ value: "others", label: "Others" },
-	{ value: "reservation", label: "Reservation Inquiry" }, // if needed
+	// { value: "others", label: "Others" },
 ];
 
 const ChatWindow = ({ closeChatWindow, chosenLanguage, propertyDetails }) => {
