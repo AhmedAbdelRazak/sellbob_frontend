@@ -609,7 +609,7 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage, propertyDetails }) => {
 							<Select
 								allowClear
 								showSearch
-								placeholder='(Optional) Choose a Property or chat with Admin'
+								placeholder='Choose a Property'
 								value={propertyId || undefined}
 								onChange={(value) => setPropertyId(value)}
 								filterOption={(input, option) =>
