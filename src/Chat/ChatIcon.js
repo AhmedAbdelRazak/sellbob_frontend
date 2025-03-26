@@ -134,8 +134,8 @@ const AgentPhotoWrapper = styled.div`
 	margin-right: 8px; /* space between photo and the icon/text */
 
 	img {
-		width: 55px;
-		height: 55px;
+		width: 65px;
+		height: 65px;
 		object-fit: cover;
 		border-radius: 50%;
 		animation: ${fadeScaleIn} 0.35s ease forwards;
@@ -143,8 +143,8 @@ const AgentPhotoWrapper = styled.div`
 
 	@media (max-width: 750px) {
 		img {
-			width: 50px;
-			height: 50px;
+			width: 65px;
+			height: 65px;
 		}
 	}
 `;

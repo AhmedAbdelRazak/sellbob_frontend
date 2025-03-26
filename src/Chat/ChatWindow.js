@@ -261,6 +261,15 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage, propertyDetails }) => {
 			return;
 		}
 
+		// If user not authenticated, enforce first+last name
+		if (!isAuthenticated()) {
+			const nameParts = customerName.trim().split(" ");
+			if (nameParts.length < 2) {
+				message.error("Please enter your full name (first and last).");
+				return;
+			}
+		}
+
 		const phoneRegex = /^[0-9]{10,15}$/;
 		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -567,9 +576,10 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage, propertyDetails }) => {
 							value={customerName}
 							onChange={(e) => setCustomerName(e.target.value)}
 							placeholder='FirstName LastName'
-							disabled={!!customerName} // if there's a pre-populated name, disable
+							// Only disable if user is authenticated & there's a prepopulated name
+							disabled={isAuthenticated() && !!customerName}
 							style={
-								customerName
+								isAuthenticated() && customerName
 									? { background: "#f5f5f5", color: "#666" }
 									: undefined
 							}
@@ -582,9 +592,10 @@ const ChatWindow = ({ closeChatWindow, chosenLanguage, propertyDetails }) => {
 							value={customerEmail}
 							onChange={(e) => setCustomerEmail(e.target.value)}
 							placeholder='client@gmail.com or 1234567890'
-							disabled={!!customerEmail} // if there's a pre-populated email/phone, disable
+							// Only disable if user is authenticated & there's a prepopulated email
+							disabled={isAuthenticated() && !!customerEmail}
 							style={
-								customerEmail
+								isAuthenticated() && customerEmail
 									? { background: "#f5f5f5", color: "#666" }
 									: undefined
 							}
