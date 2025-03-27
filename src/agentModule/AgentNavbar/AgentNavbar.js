@@ -260,7 +260,7 @@ const AgentNavbarWrapper = styled.div`
 	top: 0px !important;
 	z-index: 20000;
 	overflow: auto;
-	position: absolute;
+	position: fixed;
 	padding: 0px !important;
 
 	ul {

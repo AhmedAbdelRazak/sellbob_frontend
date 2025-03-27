@@ -8,10 +8,19 @@ import {
 } from "../apiAdmin";
 import { isAuthenticated } from "../../auth";
 
-import { FaHome, FaEye, FaCalendarCheck, FaUserFriends } from "react-icons/fa";
+import {
+	FaHome,
+	FaEye,
+	FaCalendarCheck,
+	FaUserFriends,
+	FaHeart,
+} from "react-icons/fa";
 import CountUp from "react-countup";
 import { Button, Input, Modal, message } from "antd";
 import { SearchOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
+
+// Import your Recharts-based component
+import DayOverDayViews from "./DayOverDayViews"; // adjust path as needed
 
 const { confirm } = Modal;
 
@@ -19,38 +28,39 @@ const AdminDashboardMain = () => {
 	const [collapsed, setCollapsed] = useState(false);
 	const [AdminMenuStatus, setAdminMenuStatus] = useState(false);
 
-	// Entire response from server: { top3, tableData, pagination }
+	// The server response shape:
+	// { top3, tableData, pagination, overallWishlists }
 	const [adminData, setAdminData] = useState({
 		top3: [],
 		tableData: [],
 		pagination: { page: 1, limit: 20, total: 0, pages: 1 },
+		overallWishlists: 0,
 	});
 
 	// local states for search & filters
 	const [searchValue, setSearchValue] = useState("");
-	// null => no filter, "true" => only active, "false" => only inactive
-	const [activeFilter, setActiveFilter] = useState(null);
-	// null => no filter, "true" => only featured, "false" => only not featured
-	const [featuredFilter, setFeaturedFilter] = useState(null);
+	const [activeFilter, setActiveFilter] = useState(null); // 'true' or 'false' or null
+	const [featuredFilter, setFeaturedFilter] = useState(null); // 'true' or 'false' or null
 
 	const { user, token } = isAuthenticated();
 
+	// To avoid ESLint "missing dependency" warnings for a one-time effect:
+	// we disable the rule for this line. We only want the effect to run once on mount.
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	useEffect(() => {
 		if (window.innerWidth <= 1000) {
 			setCollapsed(true);
 		}
-		// 1) Clear any previous agentId, propertyId from localStorage on mount
+		// Clear any previous agentId, propertyId from localStorage on mount
 		localStorage.removeItem("agentId");
 		localStorage.removeItem("propertyId");
 
-		// 2) initial fetch: no filters
+		// initial fetch: no filters
 		fetchAdminData(1, null, null);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		// eslint-disable-next-line
 	}, []);
 
-	/**
-	 * Fetch admin data with optional overrides for "active" and "featured".
-	 */
+	// fetch function
 	const fetchAdminData = (
 		overridePage = 1,
 		overrideActive = activeFilter,
@@ -64,11 +74,9 @@ const AdminDashboardMain = () => {
 		if (searchValue.trim()) {
 			query.search = searchValue.trim();
 		}
-
 		if (overrideActive !== null) {
 			query.active = overrideActive; // "true" or "false"
 		}
-
 		if (overrideFeatured !== null) {
 			query.featured = overrideFeatured; // "true" or "false"
 		}
@@ -85,9 +93,9 @@ const AdminDashboardMain = () => {
 	};
 
 	// destructure from adminData
-	const { top3, tableData, pagination } = adminData;
+	const { top3, tableData, pagination, overallWishlists } = adminData;
 
-	// KPI from tableData
+	// KPI calculations
 	const propertyCount = tableData.length;
 	const overallViews = tableData.reduce(
 		(sum, row) => sum + (row.views || 0),
@@ -96,13 +104,12 @@ const AdminDashboardMain = () => {
 	const upcomingAppointments = 0;
 	const activeLeads = 0;
 
-	/* -------------- Search Handlers -------------- */
+	/* ----------------- Search Handlers ----------------- */
 	const handleSearchChange = (e) => {
 		setSearchValue(e.target.value);
 	};
 	const handleSearchEnter = (e) => {
 		if (e.key === "Enter") {
-			// fetch again with current filters
 			fetchAdminData(1, activeFilter, featuredFilter);
 		}
 	};
@@ -110,7 +117,7 @@ const AdminDashboardMain = () => {
 		fetchAdminData(1, activeFilter, featuredFilter);
 	};
 
-	/* -------------- Filter Handlers: Active -------------- */
+	/* ----------------- Filter Handlers: Active ----------------- */
 	const handleFilterActive = () => {
 		setActiveFilter("true");
 		fetchAdminData(1, "true", featuredFilter);
@@ -124,7 +131,7 @@ const AdminDashboardMain = () => {
 		fetchAdminData(1, null, featuredFilter);
 	};
 
-	/* -------------- Filter Handlers: Featured -------------- */
+	/* ----------------- Filter Handlers: Featured ----------------- */
 	const handleFilterFeatured = () => {
 		setFeaturedFilter("true");
 		fetchAdminData(1, activeFilter, "true");
@@ -138,7 +145,7 @@ const AdminDashboardMain = () => {
 		fetchAdminData(1, activeFilter, null);
 	};
 
-	/* -------------- Clear ALL (Active + Featured + Search) -------------- */
+	/* ----------------- Clear ALL (Active + Featured + Search) ----------------- */
 	const handleClearAll = () => {
 		setActiveFilter(null);
 		setFeaturedFilter(null);
@@ -146,7 +153,7 @@ const AdminDashboardMain = () => {
 		fetchAdminData(1, null, null);
 	};
 
-	/* -------------- Update Status Handler -------------- */
+	/* ----------------- Update Status Handler ----------------- */
 	const handleClickActive = (e, row) => {
 		e.stopPropagation();
 
@@ -186,7 +193,7 @@ const AdminDashboardMain = () => {
 		});
 	};
 
-	/* -------------- Update Featured Handler -------------- */
+	/* ----------------- Update Featured Handler ----------------- */
 	const handleClickFeatured = (e, row) => {
 		e.stopPropagation();
 
@@ -226,7 +233,7 @@ const AdminDashboardMain = () => {
 		});
 	};
 
-	/* -------------- Row Click => store agent & property in localStorage -------------- */
+	/* ----------------- Row Click => store agent & property in localStorage ----------------- */
 	const handleRowClick = (row) => {
 		const isProperty = row.key.startsWith("p-");
 		const propertyId = isProperty ? row.key.substring(2) : "";
@@ -297,7 +304,7 @@ const AdminDashboardMain = () => {
 									<FaCalendarCheck size={24} color='#fff' />
 								</IconWrapper>
 								<KpiInfo>
-									<KpiTitle>Upcoming Appointments</KpiTitle>
+									<KpiTitle>Appointments</KpiTitle>
 									<KpiValue>
 										<CountUp end={upcomingAppointments} duration={1.5} />
 									</KpiValue>
@@ -312,6 +319,21 @@ const AdminDashboardMain = () => {
 									<KpiTitle>Active Leads</KpiTitle>
 									<KpiValue>
 										<CountUp end={activeLeads} duration={1.5} />
+									</KpiValue>
+								</KpiInfo>
+							</KpiCard>
+
+							{/* 5th Card for Wishlists */}
+							<KpiCard>
+								<IconWrapper
+									style={{ backgroundColor: "var(--primary-color-dark)" }}
+								>
+									<FaHeart size={24} color='#fff' />
+								</IconWrapper>
+								<KpiInfo>
+									<KpiTitle>Total Wishlists</KpiTitle>
+									<KpiValue>
+										<CountUp end={overallWishlists || 0} duration={1.5} />
 									</KpiValue>
 								</KpiInfo>
 							</KpiCard>
@@ -491,6 +513,9 @@ const AdminDashboardMain = () => {
 								&nbsp;Total: {pagination.total} rows
 							</p>
 						</PaginationInfo>
+
+						{/* DayOverDayViews Recharts Component */}
+						<DayOverDayViews tableData={tableData} />
 					</div>
 				</div>
 			</div>
@@ -529,9 +554,8 @@ const AdminDashboardMainWrapper = styled.div`
 const SearchFilterWrapper = styled.div`
 	margin-bottom: 20px;
 
-	/* Center all rows at same max-width */
 	.filterRowsContainer {
-		max-width: 700px; /* adjust as you like */
+		max-width: 700px;
 		margin: 0 auto;
 		display: flex;
 		flex-direction: column;
@@ -541,22 +565,22 @@ const SearchFilterWrapper = styled.div`
 		border-radius: 10px;
 	}
 
-	button {
-		font-size: 0.8rem;
-		font-weight: bold;
-	}
-
 	.filterRow {
 		display: flex;
 		justify-content: center;
 		align-items: center;
 		gap: 10px;
 	}
+
+	button {
+		font-size: 0.8rem;
+		font-weight: bold;
+	}
 `;
 
 const KpiCardsWrapper = styled.div`
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 	gap: 1rem;
 	margin-bottom: 2rem;
 `;

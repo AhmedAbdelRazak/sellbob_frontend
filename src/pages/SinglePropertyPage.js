@@ -1,5 +1,5 @@
 /** @format */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import axios from "axios";
@@ -32,7 +32,7 @@ import {
 } from "../utils";
 
 // AntD for Modal and message
-import { Modal, message } from "antd";
+import { Modal, message, Spin } from "antd";
 import ImageGallery from "react-image-gallery";
 import "react-image-gallery/styles/css/image-gallery.css";
 
@@ -90,7 +90,7 @@ const SinglePropertyPage = () => {
 	// If user is authenticated
 	const { user, token } = isAuthenticated() || {};
 
-	// Track if property is in the wishlist
+	// Track if property is in the wishlist (optional if your backend returns a flag)
 	const [inWishlist, setInWishlist] = useState(false);
 
 	// “bounce in” animation on mount
@@ -101,6 +101,67 @@ const SinglePropertyPage = () => {
 
 	// Responsive width for the ImageGallery modal
 	const [modalWidth, setModalWidth] = useState("75%");
+
+	// --- REACT STRICT MODE DOUBLE-CALL PREVENTION ---
+	const didMountRef = useRef(false);
+
+	// Whenever propertyId changes, reset the flag so we can re-run for the new property
+	useEffect(() => {
+		didMountRef.current = false;
+	}, [propertyId]);
+
+	// 1) Immediately on mount (or propertyId change), increment views, then fetch property
+	useEffect(() => {
+		// If we've already run for this property, skip (prevents double calls under Strict Mode)
+		if (didMountRef.current) return;
+		didMountRef.current = true;
+
+		const incrementViewsThenFetch = async () => {
+			setLoading(true);
+			try {
+				// 1) Prepare body data
+				let postBody = {
+					userName: "Guest",
+					email: "guest@example.com",
+					userId: null,
+				};
+
+				// If the user is authenticated, pass real data
+				if (user) {
+					postBody.userName = user.name;
+					postBody.email = user.email;
+					postBody.userId = user._id;
+				}
+
+				// 2) Increment property views via POST
+				await axios.post(
+					`${process.env.REACT_APP_API_URL}/property-details/view/${propertyId}`,
+					postBody // <<-- pass the body data
+				);
+
+				// 3) Fetch the updated property details
+				const res = await axios.get(
+					`${process.env.REACT_APP_API_URL}/property-details/${propertyId}`
+				);
+				const propertyData = res.data;
+
+				setProperty(propertyData);
+			} catch (err) {
+				console.error("Error loading property:", err);
+				setError("Failed to fetch property details.");
+			} finally {
+				setLoading(false);
+			}
+		};
+
+		incrementViewsThenFetch();
+
+		const timer = setTimeout(() => {
+			setMountAnimation(false);
+		}, 800);
+		return () => clearTimeout(timer);
+		// eslint-disable-next-line
+	}, [propertyId]);
 
 	// Dynamically handle modal width on resize
 	useEffect(() => {
@@ -116,43 +177,24 @@ const SinglePropertyPage = () => {
 		return () => window.removeEventListener("resize", handleResize);
 	}, []);
 
-	useEffect(() => {
-		const fetchPropertyDetails = async () => {
-			setLoading(true);
-			try {
-				const res = await axios.get(
-					`${process.env.REACT_APP_API_URL}/property-details/${propertyId}`
-				);
-				setProperty(res.data);
-				// If your backend returns a boolean isInWishlist, e.g.:
-				// setInWishlist(!!res.data.isInWishlist);
-			} catch (err) {
-				console.error("Error fetching property details:", err);
-				setError("Failed to fetch property details.");
-			} finally {
-				setLoading(false);
-			}
-		};
-		fetchPropertyDetails();
-
-		// End bounce-in after ~0.8s
-		const timer = setTimeout(() => {
-			setMountAnimation(false);
-		}, 800);
-		return () => clearTimeout(timer);
-	}, [propertyId]);
-
+	// If in loading state, show a spinner
 	if (loading) {
-		return <LoadingWrapper>Loading property details...</LoadingWrapper>;
+		return (
+			<LoadingWrapper>
+				<Spin tip='Loading property details...' />
+			</LoadingWrapper>
+		);
 	}
+
 	if (error) {
 		return <ErrorWrapper>{error}</ErrorWrapper>;
 	}
+
 	if (!property) {
 		return <NoDataWrapper>No Property Found.</NoDataWrapper>;
 	}
 
-	// Destructure fields
+	// Destructure fields from property
 	const {
 		propertyName,
 		propertyName_OtherLanguage,
@@ -173,7 +215,15 @@ const SinglePropertyPage = () => {
 		closeAreas,
 		roomCountDetails,
 		location,
+		userViews, // <--- total property views from DB
+		userWishList, // { user: [list_of_user_ids] } presumably
 	} = property;
+
+	// The total number of users who have wishlisted this property:
+	const totalWishlisted =
+		userWishList?.user && Array.isArray(userWishList.user)
+			? userWishList.user.length
+			: 0;
 
 	// lat / lng
 	const lat = location?.coordinates?.[1];
@@ -376,11 +426,11 @@ const SinglePropertyPage = () => {
 							<StatsRow>
 								<StatsItem>
 									<FaEye style={{ fill: "var(--primary-color-light)" }} />
-									<span>Views: 23</span>
+									<span>Views: {userViews || 0}</span>
 								</StatsItem>
 								<StatsItem>
 									<FaHeart style={{ fill: "var(--secondary-color)" }} />
-									<span>Added To Wishlist: 10</span>
+									<span>Added To Wishlist: {totalWishlisted}</span>
 								</StatsItem>
 							</StatsRow>
 						</WishlistBlock>
@@ -667,6 +717,7 @@ const PageWrapper = styled.div`
 	padding-bottom: 2rem;
 	background: var(--mainWhite);
 	color: var(--text-color-primary);
+	min-height: 700px;
 
 	/* Ensure images never overflow horizontally on small screens */
 	img {
@@ -717,6 +768,7 @@ const LoadingWrapper = styled.div`
 	padding: 2rem;
 	text-align: center;
 	font-size: 1.2rem;
+	min-height: 700px;
 `;
 const ErrorWrapper = styled.div`
 	padding: 2rem;
@@ -734,7 +786,6 @@ const NoDataWrapper = styled.div`
 const CarouselSection = styled.section`
 	position: relative;
 
-	/* Position .slick-slider so arrows can overlap without overflow */
 	.slick-slider {
 		position: relative;
 	}
@@ -784,6 +835,7 @@ const CarouselSection = styled.section`
 			width: 100%;
 			height: 60vh;
 			object-fit: cover;
+
 			@media (max-width: 768px) {
 				height: 40vh;
 			}

@@ -66,6 +66,12 @@ const App = () => {
 	//   // eslint-disable-next-line
 	// }, [window.location.pathname]);
 
+	//Views Changes OnClick
+	//Agents Carousel In Home Page
+	//Agent Page With Active Properties
+	//Customer Dashboard
+	//Navigation Menu On Smaller Screens
+
 	return (
 		<>
 			<Navbar />
