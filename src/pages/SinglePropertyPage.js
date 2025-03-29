@@ -90,7 +90,7 @@ const SinglePropertyPage = () => {
 	// If user is authenticated
 	const { user, token } = isAuthenticated() || {};
 
-	// Track if property is in the wishlist (optional if your backend returns a flag)
+	// Track if property is in the wishlist
 	const [inWishlist, setInWishlist] = useState(false);
 
 	// “bounce in” animation on mount
@@ -162,6 +162,25 @@ const SinglePropertyPage = () => {
 		return () => clearTimeout(timer);
 		// eslint-disable-next-line
 	}, [propertyId]);
+
+	// 2) Check on initial load if property is already in localStorage's wishlist
+	//    (only if the user is logged in)
+	useEffect(() => {
+		if (!loading && user && property) {
+			try {
+				const storedJwt = localStorage.getItem("jwt");
+				if (storedJwt) {
+					const parsedJwt = JSON.parse(storedJwt);
+					const propertyDetails =
+						parsedJwt?.user?.userWishList?.propertyDetails || [];
+					// If propertyId is in that array, we set inWishlist to true
+					setInWishlist(propertyDetails.includes(propertyId));
+				}
+			} catch (err) {
+				console.warn("Could not parse localStorage JWT:", err);
+			}
+		}
+	}, [loading, user, property, propertyId]);
 
 	// Dynamically handle modal width on resize
 	useEffect(() => {
@@ -281,7 +300,7 @@ const SinglePropertyPage = () => {
 		setLightboxOpen(false);
 	};
 
-	// Wishlist click
+	// 3) Wishlist click => talk to backend, then also update localStorage
 	const handleWishlistClick = async () => {
 		if (!user) {
 			// prompt sign in => show Sign In form
@@ -296,15 +315,42 @@ const SinglePropertyPage = () => {
 
 			// The new inWishlist state from backend
 			const newInWishlist = res.data.inWishlist;
+
+			// Update local state
 			setInWishlist(newInWishlist);
 
-			// Show success or danger message
-			if (newInWishlist) {
-				message.success("Property was successfully added to your wishlist!");
-				setWishlistAnimation(true);
-				setTimeout(() => setWishlistAnimation(false), 700);
-			} else {
-				message.error("Property was removed from your wishlist.");
+			// 3A) Now update the localStorage `jwt.user.userWishList.propertyDetails` array
+			const storedJwt = localStorage.getItem("jwt");
+			if (storedJwt) {
+				const parsedJwt = JSON.parse(storedJwt);
+
+				// Make sure the propertyDetails array exists
+				if (!parsedJwt.user.userWishList) {
+					parsedJwt.user.userWishList = { propertyDetails: [] };
+				}
+				if (!Array.isArray(parsedJwt.user.userWishList.propertyDetails)) {
+					parsedJwt.user.userWishList.propertyDetails = [];
+				}
+
+				let propertyDetails = parsedJwt.user.userWishList.propertyDetails;
+
+				if (newInWishlist) {
+					// If newly in wishlist, push if not present
+					if (!propertyDetails.includes(propertyId)) {
+						propertyDetails.push(propertyId);
+					}
+					message.success("Property was successfully added to your wishlist!");
+					setWishlistAnimation(true);
+					setTimeout(() => setWishlistAnimation(false), 700);
+				} else {
+					// Otherwise, remove it
+					propertyDetails = propertyDetails.filter((id) => id !== propertyId);
+					parsedJwt.user.userWishList.propertyDetails = propertyDetails;
+					message.error("Property was removed from your wishlist.");
+				}
+
+				// Put it back in localStorage
+				localStorage.setItem("jwt", JSON.stringify(parsedJwt));
 			}
 		} catch (err) {
 			console.error("Wishlist toggle error:", err);

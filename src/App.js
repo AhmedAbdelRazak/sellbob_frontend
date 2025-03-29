@@ -16,6 +16,7 @@ import Aboutus from "./pages/Aboutus";
 import SinglePropertyPage from "./pages/SinglePropertyPage";
 import NotFound from "./pages/NotFound";
 import Footer from "./components/Footer";
+import AgentPublicPage from "./pages/AgentPublicPage";
 
 //Agent Routes
 import AgentRoute from "./auth/AgentRoute";
@@ -66,10 +67,8 @@ const App = () => {
 	//   // eslint-disable-next-line
 	// }, [window.location.pathname]);
 
-	//Views Changes OnClick
-	//Agents Carousel In Home Page
-	//Agent Page With Active Properties
 	//Customer Dashboard
+	//Adding Wishlist icon to properties page and agent page
 	//Navigation Menu On Smaller Screens
 
 	return (
@@ -98,6 +97,11 @@ const App = () => {
 						path='/list-your-property'
 						exact
 						component={ListYourProperty}
+					/>
+					<Route
+						path='/properties/:agentId/:agentSlug'
+						exact
+						component={AgentPublicPage}
 					/>
 
 					{/* Agent Routes */}

@@ -4,6 +4,7 @@ import { useCartContext } from "../cart_context";
 import Hero from "../components/Home/Hero";
 import Featured from "../components/Home/Featured";
 import ExtraSections from "../components/Home/ExtraSections";
+import FeaturedAgents from "../components/Home/FeaturedAgents";
 
 const Home = () => {
 	const { websiteSetup, featuredProperties } = useCartContext();
@@ -19,6 +20,10 @@ const Home = () => {
 			) : null}
 
 			<ExtraSections websiteSetup={websiteSetup} />
+
+			{featuredProperties && featuredProperties.length > 0 ? (
+				<FeaturedAgents featuredProperties={featuredProperties} />
+			) : null}
 		</HomeWrapper>
 	);
 };
