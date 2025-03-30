@@ -2,7 +2,6 @@ import React from "react";
 import styled from "styled-components";
 // Example icons from react-icons (you have "react-icons" in package.json)
 import { FaFacebookF, FaTwitter, FaInstagram } from "react-icons/fa";
-import { Link } from "react-router-dom";
 
 const Footer = () => {
 	return (
@@ -12,7 +11,15 @@ const Footer = () => {
 					<a
 						href='https://www.facebook.com/'
 						target='_blank'
-						rel='noreferrer'
+						rel='noopener noreferrer'
+						onClick={(e) => {
+							e.preventDefault();
+							window.open(
+								"https://www.facebook.com/",
+								"_blank",
+								"noopener,noreferrer"
+							);
+						}}
 						aria-label='Facebook'
 					>
 						<FaFacebookF />
@@ -20,7 +27,15 @@ const Footer = () => {
 					<a
 						href='https://twitter.com/'
 						target='_blank'
-						rel='noreferrer'
+						rel='noopener noreferrer'
+						onClick={(e) => {
+							e.preventDefault();
+							window.open(
+								"https://twitter.com/",
+								"_blank",
+								"noopener,noreferrer"
+							);
+						}}
 						aria-label='Twitter'
 					>
 						<FaTwitter />
@@ -28,7 +43,15 @@ const Footer = () => {
 					<a
 						href='https://instagram.com/'
 						target='_blank'
-						rel='noreferrer'
+						rel='noopener noreferrer'
+						onClick={(e) => {
+							e.preventDefault();
+							window.open(
+								"https://instagram.com/",
+								"_blank",
+								"noopener,noreferrer"
+							);
+						}}
 						aria-label='Instagram'
 					>
 						<FaInstagram />
@@ -36,10 +59,46 @@ const Footer = () => {
 				</div>
 
 				<div className='links'>
-					{/* Example internal links */}
-					<Link to='/about'>About Us</Link>
-					<Link to='/contact'>Contact</Link>
-					<Link to='/properties'>Our Properties</Link>
+					<a
+						href='/about'
+						onClick={(e) => {
+							e.preventDefault();
+							window.location.href = "/about";
+						}}
+					>
+						About Us
+					</a>
+
+					<a
+						href='/contact'
+						onClick={(e) => {
+							e.preventDefault();
+							window.location.href = "/contact";
+						}}
+					>
+						Contact
+					</a>
+
+					<a
+						href='/properties'
+						onClick={(e) => {
+							e.preventDefault();
+							window.location.href = "/properties";
+						}}
+					>
+						Our Properties
+					</a>
+
+					<a
+						href='/terms-and-conditions?tab=termsandconditions'
+						onClick={(e) => {
+							e.preventDefault();
+							window.location.href =
+								"/terms-and-conditions?tab=termsandconditions";
+						}}
+					>
+						Terms & Conditions
+					</a>
 				</div>
 
 				<p className='copyright'>

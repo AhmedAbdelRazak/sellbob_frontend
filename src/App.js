@@ -17,6 +17,7 @@ import SinglePropertyPage from "./pages/SinglePropertyPage";
 import NotFound from "./pages/NotFound";
 import Footer from "./components/Footer";
 import AgentPublicPage from "./pages/AgentPublicPage";
+import TermsAndConditionsMain from "./pages/TermsAndConditionsMain";
 
 //Agent Routes
 import AgentRoute from "./auth/AgentRoute";
@@ -27,6 +28,7 @@ import ChatIcon from "./Chat/ChatIcon";
 import AppointmentManagementMain from "./agentModule/AgentAppointmentManagement/AppointmentManagementMain";
 import SubscriptionMain from "./agentModule/Subscription/SubscriptionMain";
 import CampaignsMain from "./agentModule/Campaigns/CampaignsMain";
+import AccountUpdateMain from "./agentModule/AccountUpdate/AccountUpdateMain";
 
 //Overall Admin Routes
 import AdminRoute from "./auth/AdminRoute";
@@ -35,7 +37,10 @@ import WebsiteMain from "./adminModule/Website/WebsiteMain";
 import CustomerServiceMain from "./adminModule/CustomerService/CustomerServiceMain";
 import OverallAppointmentsMain from "./adminModule/Appointments/OverallAppointmentsMain";
 import OverallSubscriptionsMain from "./adminModule/Subscriptions/OverallSubscriptionsMain";
-import AccountUpdateMain from "./agentModule/AccountUpdate/AccountUpdateMain";
+import OverallCampaignsMain from "./adminModule/Campaigns/OverallCampaignsMain";
+
+import PrivateRoute from "./auth/PrivateRoute";
+import CustomerDashboardMain from "./userModule/CustomerDashboardMain";
 
 const App = () => {
 	const location = useLocation(); // from react-router-dom
@@ -66,10 +71,6 @@ const App = () => {
 
 	//   // eslint-disable-next-line
 	// }, [window.location.pathname]);
-
-	//Customer Dashboard
-	//Adding Wishlist icon to properties page and agent page
-	//Navigation Menu On Smaller Screens
 
 	return (
 		<>
@@ -102,6 +103,17 @@ const App = () => {
 						path='/properties/:agentId/:agentSlug'
 						exact
 						component={AgentPublicPage}
+					/>
+					<Route
+						path='/terms-and-conditions'
+						exact
+						component={TermsAndConditionsMain}
+					/>
+
+					<PrivateRoute
+						path='/customer/dashboard'
+						exact
+						component={CustomerDashboardMain}
 					/>
 
 					{/* Agent Routes */}
@@ -164,7 +176,7 @@ const App = () => {
 					<AdminRoute
 						path='/admin/overall-campaigns'
 						exact
-						component={OverallSubscriptionsMain}
+						component={OverallCampaignsMain}
 					/>
 
 					{/* 404 PAGE for any unmatched route */}

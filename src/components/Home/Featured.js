@@ -12,6 +12,7 @@ import "slick-carousel/slick/slick-theme.css";
 import Signin from "../../components/SinglePropertyPage/Signin";
 import Signup from "../../components/SinglePropertyPage/Signup";
 import { isAuthenticated } from "../../auth";
+import { storeLatestViewedProperty } from "../../apiCore";
 
 /* -------------- Utility Helpers -------------- */
 
@@ -210,6 +211,8 @@ const Featured = ({ featuredProperties = [] }) => {
 
 	// Go to single property
 	const handleGoToProperty = (property) => {
+		storeLatestViewedProperty(property._id);
+
 		const { propertyState, _id, propertyName } = property;
 		const slug = slugify(propertyName);
 		window.location.href = `/single-property/${propertyState}/${slug}/${_id}`;

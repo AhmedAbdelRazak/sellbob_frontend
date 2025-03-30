@@ -5,13 +5,17 @@ import Hero from "../components/Home/Hero";
 import Featured from "../components/Home/Featured";
 import ExtraSections from "../components/Home/ExtraSections";
 import FeaturedAgents from "../components/Home/FeaturedAgents";
+import FilterBar from "../components/Global/FilterBar";
 
 const Home = () => {
-	const { websiteSetup, featuredProperties } = useCartContext();
+	const { websiteSetup, featuredProperties, activeStatesAndCities } =
+		useCartContext();
 
 	return (
 		<HomeWrapper>
 			<Hero websiteSetup={websiteSetup} />
+
+			<FilterBar activeStatesAndCities={activeStatesAndCities} />
 			{featuredProperties && featuredProperties.length > 0 ? (
 				<Featured
 					websiteSetup={websiteSetup}

@@ -4,6 +4,7 @@ import {
 	SIDEBAR_CLOSE2,
 	SET_WEBSITE_SETUP,
 	FEATURED_PROPERTIES,
+	ACTIVE_STATES_CITIES,
 } from "./actions";
 
 const cart_reducer = (state, action) => {
@@ -26,6 +27,10 @@ const cart_reducer = (state, action) => {
 
 	if (action.type === FEATURED_PROPERTIES) {
 		return { ...state, featuredProperties: action.payload };
+	}
+
+	if (action.type === ACTIVE_STATES_CITIES) {
+		return { ...state, activeStatesAndCities: action.payload };
 	}
 
 	throw new Error(`No Matching "${action.type}" - action type`);

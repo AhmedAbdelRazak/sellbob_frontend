@@ -1,5 +1,4 @@
 /** @format */
-// src/components/AgentPuplicPage/AgentPublicPageDetails.jsx
 
 import React, { useState } from "react";
 import styled from "styled-components";
@@ -23,6 +22,7 @@ import {
 
 // Amenity & Views arrays:
 import { propertyAmenitiesList, propertyViewsList } from "../../utils";
+import { storeLatestViewedProperty } from "../../apiCore";
 
 /* ------------------ Helper Functions ------------------ */
 
@@ -78,7 +78,7 @@ function getIconForFeature(feature = "") {
 	return <AiOutlineInfoCircle />;
 }
 
-const AgentPublicPageDetails = ({ properties = [] }) => {
+const PropertyDetails = ({ properties = [] }) => {
 	const history = useHistory();
 
 	// Single map modal for all rows
@@ -88,13 +88,15 @@ const AgentPublicPageDetails = ({ properties = [] }) => {
 	if (!properties.length) {
 		return (
 			<NoPropertiesWrapper className='container my-4'>
-				<h2>No active properties for this agent.</h2>
+				<h2>No active properties</h2>
 			</NoPropertiesWrapper>
 		);
 	}
 
 	// Navigate to single property
 	const goToSingleProperty = (property) => {
+		storeLatestViewedProperty(property._id);
+
 		const { _id, propertyState, propertyName } = property;
 		const slug = slugify(propertyName || "");
 		history.push(`/single-property/${propertyState}/${slug}/${_id}`);
@@ -349,7 +351,7 @@ const AgentPublicPageDetails = ({ properties = [] }) => {
 	);
 };
 
-export default AgentPublicPageDetails;
+export default PropertyDetails;
 
 /* ------------------ STYLED COMPONENTS ------------------ */
 const NoPropertiesWrapper = styled.div`

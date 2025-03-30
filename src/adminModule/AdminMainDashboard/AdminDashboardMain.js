@@ -1,5 +1,10 @@
-import React, { useState, useEffect } from "react";
+/** @format */
+// AdminDashboardMain.js
+
+import React, { useState, useEffect, useMemo } from "react";
 import styled from "styled-components";
+import { useLocation, useHistory } from "react-router-dom";
+
 import AdminNavbar from "../AdminNavbar/AdminNavbar";
 import {
 	gettingPropertiesForAdmin,
@@ -8,6 +13,7 @@ import {
 } from "../apiAdmin";
 import { isAuthenticated } from "../../auth";
 
+// Icons
 import {
 	FaHome,
 	FaEye,
@@ -16,11 +22,15 @@ import {
 	FaHeart,
 } from "react-icons/fa";
 import CountUp from "react-countup";
-import { Button, Input, Modal, message } from "antd";
-import { SearchOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
+import { Modal, message } from "antd";
+import { ExclamationCircleOutlined } from "@ant-design/icons";
 
-// Import your Recharts-based component
-import DayOverDayViews from "./DayOverDayViews"; // adjust path as needed
+// Sub-components
+import DayOverDayViews from "./DayOverDayViews";
+import PropertiesDetails from "./PropertiesDetails";
+import AppointmentsOverview from "./AppointmentsOverview";
+import ActiveLeadsOverview from "./ActiveLeadsOverview";
+import WishListOverview from "./WishListOverview";
 
 const { confirm } = Modal;
 
@@ -28,8 +38,7 @@ const AdminDashboardMain = () => {
 	const [collapsed, setCollapsed] = useState(false);
 	const [AdminMenuStatus, setAdminMenuStatus] = useState(false);
 
-	// The server response shape:
-	// { top3, tableData, pagination, overallWishlists }
+	// The server response shape: { top3, tableData, pagination, overallWishlists }
 	const [adminData, setAdminData] = useState({
 		top3: [],
 		tableData: [],
@@ -44,9 +53,22 @@ const AdminDashboardMain = () => {
 
 	const { user, token } = isAuthenticated();
 
-	// To avoid ESLint "missing dependency" warnings for a one-time effect:
-	// we disable the rule for this line. We only want the effect to run once on mount.
-	// eslint-disable-next-line react-hooks/exhaustive-deps
+	// For reading & updating the query param that tracks which KPI is active
+	const location = useLocation();
+	const history = useHistory();
+
+	const validKPIs = [
+		"propertyCount",
+		"overallViews",
+		"appointments",
+		"activeLeads",
+		"wishlists",
+	];
+
+	// Default KPI is "propertyCount"
+	const [activeKPI, setActiveKPI] = useState("propertyCount");
+
+	// On mount, handle small screen collapse + set activeKPI from URL
 	useEffect(() => {
 		if (window.innerWidth <= 1000) {
 			setCollapsed(true);
@@ -55,12 +77,22 @@ const AdminDashboardMain = () => {
 		localStorage.removeItem("agentId");
 		localStorage.removeItem("propertyId");
 
+		// Check if there's a ?kpi= param
+		const searchParams = new URLSearchParams(location.search);
+		const kpiParam = searchParams.get("kpi");
+		if (kpiParam && validKPIs.includes(kpiParam)) {
+			setActiveKPI(kpiParam);
+		} else {
+			// default to propertyCount
+			setActiveKPI("propertyCount");
+		}
+
 		// initial fetch: no filters
 		fetchAdminData(1, null, null);
 		// eslint-disable-next-line
 	}, []);
 
-	// fetch function
+	// Core fetch function
 	const fetchAdminData = (
 		overridePage = 1,
 		overrideActive = activeFilter,
@@ -95,16 +127,56 @@ const AdminDashboardMain = () => {
 	// destructure from adminData
 	const { top3, tableData, pagination, overallWishlists } = adminData;
 
-	// KPI calculations
+	// 1) Property Count
 	const propertyCount = tableData.length;
+
+	// 2) Overall Views
 	const overallViews = tableData.reduce(
 		(sum, row) => sum + (row.views || 0),
 		0
 	);
-	const upcomingAppointments = 0;
-	const activeLeads = 0;
 
-	/* ----------------- Search Handlers ----------------- */
+	// 3) Appointments => Flatten them from appointmentsBreakdown
+	const appointmentsCount = useMemo(() => {
+		let allAppointments = [];
+		tableData.forEach((row) => {
+			const breakdown = row.appointmentsBreakdown;
+			if (!breakdown) return;
+			const { upcoming = [], today = [], last7Days = [] } = breakdown;
+			allAppointments.push(...upcoming, ...today, ...last7Days);
+		});
+		return allAppointments.length;
+	}, [tableData]);
+
+	// 4) Active Leads => from the logic in ActiveLeadsOverview
+	const totalActiveLeads = useMemo(() => {
+		let arr = [];
+		tableData.forEach((row) => {
+			const owner = (row.ownerName || "").toLowerCase().trim();
+			const leads = row.activeLeads || [];
+
+			leads.forEach((lead) => {
+				const leadName = (lead.name || "").toLowerCase().trim();
+				// skip if leadName === ownerName
+				if (leadName === owner) return;
+				arr.push(lead);
+			});
+		});
+		return arr.length;
+	}, [tableData]);
+
+	// ----------------- Query Param for KPI -----------------
+	const handleKpiClick = (kpiKey) => {
+		setActiveKPI(kpiKey);
+		const searchParams = new URLSearchParams(location.search);
+		searchParams.set("kpi", kpiKey);
+		history.push({
+			pathname: location.pathname,
+			search: searchParams.toString(),
+		});
+	};
+
+	// ----------------- Search Handlers -----------------
 	const handleSearchChange = (e) => {
 		setSearchValue(e.target.value);
 	};
@@ -117,7 +189,7 @@ const AdminDashboardMain = () => {
 		fetchAdminData(1, activeFilter, featuredFilter);
 	};
 
-	/* ----------------- Filter Handlers: Active ----------------- */
+	// ----------------- Filter Handlers: Active -----------------
 	const handleFilterActive = () => {
 		setActiveFilter("true");
 		fetchAdminData(1, "true", featuredFilter);
@@ -131,7 +203,7 @@ const AdminDashboardMain = () => {
 		fetchAdminData(1, null, featuredFilter);
 	};
 
-	/* ----------------- Filter Handlers: Featured ----------------- */
+	// ----------------- Filter Handlers: Featured -----------------
 	const handleFilterFeatured = () => {
 		setFeaturedFilter("true");
 		fetchAdminData(1, activeFilter, "true");
@@ -145,7 +217,7 @@ const AdminDashboardMain = () => {
 		fetchAdminData(1, activeFilter, null);
 	};
 
-	/* ----------------- Clear ALL (Active + Featured + Search) ----------------- */
+	// ----------------- Clear ALL (Active + Featured + Search) -----------------
 	const handleClearAll = () => {
 		setActiveFilter(null);
 		setFeaturedFilter(null);
@@ -153,10 +225,9 @@ const AdminDashboardMain = () => {
 		fetchAdminData(1, null, null);
 	};
 
-	/* ----------------- Update Status Handler ----------------- */
+	// ----------------- Update Status Handler -----------------
 	const handleClickActive = (e, row) => {
 		e.stopPropagation();
-
 		const currentStatus = row.activeProperty === true;
 		const propertyId = row.key.replace("p-", "");
 
@@ -193,10 +264,9 @@ const AdminDashboardMain = () => {
 		});
 	};
 
-	/* ----------------- Update Featured Handler ----------------- */
+	// ----------------- Update Featured Handler -----------------
 	const handleClickFeatured = (e, row) => {
 		e.stopPropagation();
-
 		const currentFeatured = row.featured === true;
 		const propertyId = row.key.replace("p-", "");
 
@@ -233,7 +303,7 @@ const AdminDashboardMain = () => {
 		});
 	};
 
-	/* ----------------- Row Click => store agent & property in localStorage ----------------- */
+	// ----------------- Row Click => store agent & property in localStorage -----------------
 	const handleRowClick = (row) => {
 		const isProperty = row.key.startsWith("p-");
 		const propertyId = isProperty ? row.key.substring(2) : "";
@@ -252,6 +322,9 @@ const AdminDashboardMain = () => {
 		}`;
 	};
 
+	// ---------------------------------------------------------
+	// Render
+	// ---------------------------------------------------------
 	return (
 		<AdminDashboardMainWrapper show={collapsed}>
 			<div className='grid-container-main'>
@@ -269,7 +342,11 @@ const AdminDashboardMain = () => {
 					<div className='container-wrapper'>
 						{/* KPI Cards */}
 						<KpiCardsWrapper>
-							<KpiCard>
+							{/* 1) Property Count Card */}
+							<KpiCard
+								isActive={activeKPI === "propertyCount"}
+								onClick={() => handleKpiClick("propertyCount")}
+							>
 								<IconWrapper
 									style={{ backgroundColor: "var(--primary-color-light)" }}
 								>
@@ -283,7 +360,11 @@ const AdminDashboardMain = () => {
 								</KpiInfo>
 							</KpiCard>
 
-							<KpiCard>
+							{/* 2) Overall Views Card */}
+							<KpiCard
+								isActive={activeKPI === "overallViews"}
+								onClick={() => handleKpiClick("overallViews")}
+							>
 								<IconWrapper
 									style={{ backgroundColor: "var(--secondary-color)" }}
 								>
@@ -297,7 +378,11 @@ const AdminDashboardMain = () => {
 								</KpiInfo>
 							</KpiCard>
 
-							<KpiCard>
+							{/* 3) Appointments => from appointmentsCount */}
+							<KpiCard
+								isActive={activeKPI === "appointments"}
+								onClick={() => handleKpiClick("appointments")}
+							>
 								<IconWrapper
 									style={{ backgroundColor: "var(--primary-color-dark)" }}
 								>
@@ -306,25 +391,32 @@ const AdminDashboardMain = () => {
 								<KpiInfo>
 									<KpiTitle>Appointments</KpiTitle>
 									<KpiValue>
-										<CountUp end={upcomingAppointments} duration={1.5} />
+										<CountUp end={appointmentsCount} duration={1.5} />
 									</KpiValue>
 								</KpiInfo>
 							</KpiCard>
 
-							<KpiCard>
+							{/* 4) Active Leads */}
+							<KpiCard
+								isActive={activeKPI === "activeLeads"}
+								onClick={() => handleKpiClick("activeLeads")}
+							>
 								<IconWrapper style={{ backgroundColor: "var(--orangeDark)" }}>
 									<FaUserFriends size={24} color='#fff' />
 								</IconWrapper>
 								<KpiInfo>
 									<KpiTitle>Active Leads</KpiTitle>
 									<KpiValue>
-										<CountUp end={activeLeads} duration={1.5} />
+										<CountUp end={totalActiveLeads} duration={1.5} />
 									</KpiValue>
 								</KpiInfo>
 							</KpiCard>
 
-							{/* 5th Card for Wishlists */}
-							<KpiCard>
+							{/* 5) Wishlists */}
+							<KpiCard
+								isActive={activeKPI === "wishlists"}
+								onClick={() => handleKpiClick("wishlists")}
+							>
 								<IconWrapper
 									style={{ backgroundColor: "var(--primary-color-dark)" }}
 								>
@@ -339,183 +431,51 @@ const AdminDashboardMain = () => {
 							</KpiCard>
 						</KpiCardsWrapper>
 
-						{/* Top 3 */}
-						<Top3Wrapper>
-							<SectionTitle>Top 3 Viewed Properties</SectionTitle>
-							{top3 && top3.length > 0 ? (
-								<ul>
-									{top3.map((item, idx) => (
-										<li key={idx}>
-											{item.name || "Untitled"} — {item.views} views
-										</li>
-									))}
-								</ul>
-							) : (
-								<p>No properties found.</p>
-							)}
-						</Top3Wrapper>
+						{/* Conditionally Render the active KPI component */}
+						{activeKPI === "propertyCount" && (
+							<PropertiesDetails
+								handleClearActive={handleClearActive}
+								pagination={pagination}
+								tableData={tableData}
+								handleFilterActive={handleFilterActive}
+								handleFilterNotFeatured={handleFilterNotFeatured}
+								featuredFilter={featuredFilter}
+								searchValue={searchValue}
+								handleSearchButton={handleSearchButton}
+								handleSearchChange={handleSearchChange}
+								handleSearchEnter={handleSearchEnter}
+								handleClearAll={handleClearAll}
+								activeFilter={activeFilter}
+								handleFilterInactive={handleFilterInactive}
+								handleRowClick={handleRowClick}
+								handleFilterFeatured={handleFilterFeatured}
+								handleClearFeatured={handleClearFeatured}
+								handleClickActive={handleClickActive}
+								handleClickFeatured={handleClickFeatured}
+								top3={top3}
+							/>
+						)}
 
-						{/* Search & Filter */}
-						<SearchFilterWrapper>
-							<div className='filterRowsContainer'>
-								{/* Row 1: Search + Clear All */}
-								<div className='filterRow'>
-									<Input
-										placeholder='Search user or property...'
-										prefix={<SearchOutlined />}
-										value={searchValue}
-										onChange={handleSearchChange}
-										onKeyPress={handleSearchEnter}
-										style={{ width: 300 }}
-									/>
-									<Button type='primary' onClick={handleSearchButton}>
-										Search
-									</Button>
-									<Button danger onClick={handleClearAll}>
-										Clear All
-									</Button>
-								</div>
+						{activeKPI === "appointments" && (
+							<AppointmentsOverview tableData={tableData} />
+						)}
 
-								{/* Row 2: Active / Inactive */}
-								<div className='filterRow'>
-									<Button
-										type={activeFilter === "true" ? "primary" : "default"}
-										onClick={handleFilterActive}
-									>
-										Active
-									</Button>
-									<Button
-										type={activeFilter === "false" ? "primary" : "default"}
-										onClick={handleFilterInactive}
-									>
-										Inactive
-									</Button>
-									<Button
-										type={activeFilter === null ? "primary" : "default"}
-										onClick={handleClearActive}
-									>
-										Clear Active
-									</Button>
-								</div>
+						{activeKPI === "activeLeads" && (
+							<ActiveLeadsOverview tableData={tableData} />
+						)}
 
-								{/* Row 3: Featured / Not Featured */}
-								<div className='filterRow'>
-									<Button
-										type={featuredFilter === "true" ? "primary" : "default"}
-										onClick={handleFilterFeatured}
-									>
-										Featured
-									</Button>
-									<Button
-										type={featuredFilter === "false" ? "primary" : "default"}
-										onClick={handleFilterNotFeatured}
-									>
-										Not Featured
-									</Button>
-									<Button
-										type={featuredFilter === null ? "primary" : "default"}
-										onClick={handleClearFeatured}
-									>
-										Clear Featured
-									</Button>
-								</div>
-							</div>
-						</SearchFilterWrapper>
+						{activeKPI === "wishlists" && (
+							<WishListOverview tableData={tableData} />
+						)}
 
-						{/* Table */}
-						<SectionTitle>All Agents & Properties</SectionTitle>
-						<TableWrapper>
-							<table className='myStyledTable'>
-								<thead>
-									<tr>
-										<th style={{ width: "40px" }}>#</th>
-										<th>Owner Name</th>
-										<th>Email / Phone</th>
-										<th>Property</th>
-										<th>Location</th>
-										<th>Views</th>
-										<th>Status</th>
-										<th>Active?</th>
-										<th>Featured?</th>
-										<th>Price</th>
-									</tr>
-								</thead>
-								<tbody>
-									{tableData && tableData.length > 0 ? (
-										tableData.map((row, idx) => (
-											<tr
-												key={row.key}
-												onClick={() => handleRowClick(row)}
-												style={{ cursor: "pointer" }}
-											>
-												<td>{idx + 1}</td>
-												<td>{row.ownerName}</td>
-												<td>
-													{row.ownerEmail}
-													{row.ownerPhone ? ` | ${row.ownerPhone}` : ""}
-												</td>
-												<td>{row.property}</td>
-												<td>{row.location}</td>
-												<td>{row.views}</td>
-												<td>{row.status}</td>
-												<td>
-													<span
-														style={{
-															padding: "3px 8px",
-															borderRadius: "4px",
-															backgroundColor: row.activeProperty
-																? "#d4edda"
-																: "#f8d7da",
-															color: row.activeProperty ? "#155724" : "#721c24",
-															fontWeight: "bold",
-															cursor: "pointer",
-														}}
-														onClick={(e) => handleClickActive(e, row)}
-													>
-														{row.activeProperty ? "Active" : "Inactive"}
-													</span>
-												</td>
-												<td>
-													<span
-														style={{
-															padding: "3px 8px",
-															borderRadius: "4px",
-															backgroundColor: row.featured
-																? "#c2f8c2"
-																: "#d1ecf1",
-															color: row.featured ? "#155724" : "#0c5460",
-															fontWeight: "bold",
-															cursor: "pointer",
-														}}
-														onClick={(e) => handleClickFeatured(e, row)}
-													>
-														{row.featured ? "Featured" : "Not Featured"}
-													</span>
-												</td>
-												<td>{row.price}</td>
-											</tr>
-										))
-									) : (
-										<tr>
-											<td colSpan={10}>
-												<em>No data found.</em>
-											</td>
-										</tr>
-									)}
-								</tbody>
-							</table>
-						</TableWrapper>
-
-						{/* Pagination */}
-						<PaginationInfo>
-							<p>
-								Page: {pagination.page} / {pagination.pages} &nbsp; |
-								&nbsp;Total: {pagination.total} rows
-							</p>
-						</PaginationInfo>
-
-						{/* DayOverDayViews Recharts Component */}
-						<DayOverDayViews tableData={tableData} />
+						{/* If no tableData, skip DayOverDayViews */}
+						{tableData && tableData.length > 0 && (
+							<>
+								{activeKPI === "overallViews" && (
+									<DayOverDayViews tableData={tableData} />
+								)}
+							</>
+						)}
 					</div>
 				</div>
 			</div>
@@ -525,7 +485,9 @@ const AdminDashboardMain = () => {
 
 export default AdminDashboardMain;
 
-/* ---------- Styled Components ---------- */
+/* ---------------------------------- */
+/*           STYLED COMPONENTS        */
+/* ---------------------------------- */
 const AdminDashboardMainWrapper = styled.div`
 	min-height: 300px;
 	overflow-x: hidden;
@@ -537,7 +499,7 @@ const AdminDashboardMainWrapper = styled.div`
 	}
 
 	.container-wrapper {
-		border: 2px solid lightgrey;
+		border: 2px solid var(--neutral-light3);
 		padding: 20px;
 		border-radius: 20px;
 		background: var(--mainWhite);
@@ -548,33 +510,6 @@ const AdminDashboardMainWrapper = styled.div`
 	ul {
 		list-style: none;
 		text-transform: capitalize;
-	}
-`;
-
-const SearchFilterWrapper = styled.div`
-	margin-bottom: 20px;
-
-	.filterRowsContainer {
-		max-width: 700px;
-		margin: 0 auto;
-		display: flex;
-		flex-direction: column;
-		gap: 15px;
-		border: 1px lightgray solid;
-		padding: 10px;
-		border-radius: 10px;
-	}
-
-	.filterRow {
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		gap: 10px;
-	}
-
-	button {
-		font-size: 0.8rem;
-		font-weight: bold;
 	}
 `;
 
@@ -592,6 +527,22 @@ const KpiCard = styled.div`
 	border-radius: 8px;
 	box-shadow: var(--box-shadow-light);
 	padding: 1rem;
+	cursor: pointer;
+	transition: var(--main-transition);
+
+	/* Hover => slightly increase padding & stronger shadow */
+	&:hover {
+		padding: 1.1rem; /* subtle increase */
+		box-shadow: var(--box-shadow-dark);
+	}
+
+	/* If card is active => highlight */
+	${(props) =>
+		props.isActive &&
+		`
+      border: 2px solid var(--primaryBlue);
+      background: var(--neutral-light);
+    `}
 `;
 
 const IconWrapper = styled.div`
@@ -620,60 +571,4 @@ const KpiValue = styled.span`
 	font-size: 1.4rem;
 	font-weight: bold;
 	color: var(--text-color-dark);
-`;
-
-const Top3Wrapper = styled.div`
-	margin-bottom: 2rem;
-`;
-
-const SectionTitle = styled.h3`
-	font-size: 1.2rem;
-	color: var(--text-color-dark);
-	margin-bottom: 0.75rem;
-	font-weight: 600;
-`;
-
-const TableWrapper = styled.div`
-	margin-top: 1rem;
-
-	.myStyledTable {
-		width: 100%;
-		border-collapse: collapse;
-		background: var(--mainWhite);
-		color: var(--text-color-dark);
-		font-size: 0.8rem;
-
-		thead {
-			background: var(--neutral-light2);
-			tr th {
-				padding: 0.75rem;
-				border: 1px solid var(--border-color-light);
-				text-align: left;
-				font-weight: bold;
-			}
-		}
-
-		tbody {
-			tr {
-				border-bottom: 1px solid var(--border-color-light);
-				transition: var(--main-transition);
-
-				&:hover {
-					background: var(--neutral-light3);
-				}
-
-				td {
-					padding: 0.75rem;
-					border: 1px solid var(--border-color-light);
-					vertical-align: middle;
-				}
-			}
-		}
-	}
-`;
-
-const PaginationInfo = styled.div`
-	margin-top: 1rem;
-	font-size: 0.9rem;
-	color: var(--text-color-secondary);
 `;

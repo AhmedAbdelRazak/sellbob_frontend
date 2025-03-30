@@ -6,8 +6,13 @@ import {
 	SIDEBAR_OPEN2,
 	SET_WEBSITE_SETUP,
 	FEATURED_PROPERTIES,
+	ACTIVE_STATES_CITIES,
 } from "./actions";
-import { gettingFeaturedProperties, getWebsiteSetup } from "./apiCore";
+import {
+	gettingFeaturedProperties,
+	getWebsiteSetup,
+	gettingActiveStatesAndCities,
+} from "./apiCore";
 
 const getLanguageLocalStorage = () => {
 	let language = localStorage.getItem("lang");
@@ -35,6 +40,7 @@ const initialState = {
 	total_price: 0,
 	websiteSetup: null, // <-- new
 	featuredProperties: null, // <-- featured
+	activeStatesAndCities: null, // <-- activeStatesAndCities
 };
 
 const CartContext = React.createContext();
@@ -88,8 +94,24 @@ export const CartProvider = ({ children }) => {
 			}
 		};
 
+		//Fetching activeStatesAndCities
+		const fetchActiveStatesAndCities = async () => {
+			try {
+				// Adjust if you need userId/token
+				// or remove if the endpoint is public
+				const userId = "";
+				const token = "";
+				const data3 = await gettingActiveStatesAndCities(userId, token);
+				// data should be the object returned from your /website-basic-setup endpoint
+				dispatch({ type: ACTIVE_STATES_CITIES, payload: data3 });
+			} catch (error) {
+				console.error("Error fetching Website Setup: ", error);
+			}
+		};
+
 		fetchData();
 		fetchFeaturedData();
+		fetchActiveStatesAndCities();
 	}, []); // empty deps => runs once
 
 	// 3) Provide everything in context

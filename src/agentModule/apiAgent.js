@@ -433,3 +433,42 @@ export const uploadProfilePhoto = async (userId, token, bodyData) => {
 		return { error: "Failed to upload profile photo." };
 	}
 };
+
+export const gettingPropertiesForAgent = (userId, token, query = {}) => {
+	const params = new URLSearchParams();
+
+	if (query.search) params.append("search", query.search);
+
+	// Check if active is a string
+	if (typeof query.active === "string") {
+		params.append("active", query.active);
+	}
+
+	// Check if featured is a string
+	if (typeof query.featured === "string") {
+		params.append("featured", query.featured);
+	}
+
+	if (query.page) params.append("page", query.page);
+	if (query.limit) params.append("limit", query.limit);
+
+	const url = `${process.env.REACT_APP_API_URL}/property-details/agent/${userId}?${params.toString()}`;
+
+	return fetch(url, {
+		method: "GET",
+		headers: {
+			Accept: "application/json",
+			Authorization: `Bearer ${token}`,
+			"Cache-Control": "no-cache",
+		},
+	})
+		.then((res) => {
+			if (!res.ok) {
+				throw new Error(`HTTP error! Status: ${res.status}`);
+			}
+			return res.json();
+		})
+		.catch((err) => {
+			console.error("Error fetching admin properties:", err);
+		});
+};

@@ -6,7 +6,7 @@ import styled from "styled-components";
 import { Spin, message } from "antd";
 import { useParams } from "react-router-dom";
 
-import AgentPublicPageDetails from "../components/AgentPuplicPage/AgentPublicPageDetails";
+import AgentPublicPageDetails from "../components/Global/PropertyDetails";
 import AgentDetails from "../components/AgentPuplicPage/AgentDetails";
 
 const AgentPublicPage = () => {

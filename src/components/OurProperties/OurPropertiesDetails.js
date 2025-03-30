@@ -23,6 +23,7 @@ import {
 
 // Amenity & Views arrays:
 import { propertyAmenitiesList, propertyViewsList } from "../../utils";
+import { storeLatestViewedProperty } from "../../apiCore";
 
 /* ------------------ Helper Functions ------------------ */
 
@@ -95,6 +96,8 @@ const OurPropertiesDetails = ({ properties = [] }) => {
 
 	// Navigate to single property
 	const goToSingleProperty = (property) => {
+		storeLatestViewedProperty(property._id);
+
 		const { _id, propertyState, propertyName } = property;
 		const slug = slugify(propertyName || "");
 		history.push(`/single-property/${propertyState}/${slug}/${_id}`);

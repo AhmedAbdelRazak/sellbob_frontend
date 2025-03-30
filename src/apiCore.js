@@ -213,6 +213,24 @@ export const gettingFeaturedProperties = async () => {
 	return response.json();
 };
 
+export const gettingActiveStatesAndCities = async () => {
+	// Or your actual route: /list-of-active-properties, etc.
+	const response = await fetch(
+		`${process.env.REACT_APP_API_URL}/active-states-cities`,
+		{
+			method: "GET",
+			headers: {
+				Accept: "application/json",
+			},
+		}
+	);
+	if (!response.ok) {
+		const text = await response.text();
+		throw new Error(text);
+	}
+	return response.json();
+};
+
 export const getWebsiteSetup = (userId, token) => {
 	return fetch(`${process.env.REACT_APP_API_URL}/website-basic-setup`, {
 		method: "GET",
@@ -229,4 +247,91 @@ export const getWebsiteSetup = (userId, token) => {
 			return res.json();
 		})
 		.catch((err) => console.error("Error getting single setup:", err));
+};
+
+export const getUserDetails = (userId, token) => {
+	return fetch(`${process.env.REACT_APP_API_URL}/user/${userId}`, {
+		method: "GET",
+		headers: {
+			Accept: "application/json",
+			Authorization: `Bearer ${token}`,
+		},
+	})
+		.then((res) => {
+			if (!res.ok) {
+				// If 404, doc not found
+				throw new Error(`HTTP error! Status: ${res.status}`);
+			}
+			return res.json();
+		})
+		.catch((err) => console.error("Error getting single setup:", err));
+};
+
+export const updateUserProfile = async (
+	targetUserId,
+	userId,
+	token,
+	updatePayload
+) => {
+	try {
+		const res = await fetch(
+			`${process.env.REACT_APP_API_URL}/client-account/update-profile/${targetUserId}/${userId}`,
+			{
+				method: "PUT",
+				headers: {
+					Accept: "application/json",
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify(updatePayload),
+			}
+		);
+		return await res.json();
+	} catch (err) {
+		console.error(err);
+		return { error: "Failed to update user." };
+	}
+};
+
+export const storeLatestViewedProperty = (propertyId) => {
+	try {
+		// Read existing storage
+		let stored = localStorage.getItem("latestViewed");
+		if (!stored) {
+			stored = [];
+		} else {
+			stored = JSON.parse(stored);
+		}
+
+		// Current timestamp (ISO string or your preferred format)
+		const dateNow = new Date().toISOString();
+
+		// Check if this property already exists in localStorage
+		const existingIndex = stored.findIndex((item) => item._id === propertyId);
+
+		if (existingIndex >= 0) {
+			// Property already in localStorage => update datetimeClicked
+			stored[existingIndex].datetimeClicked = dateNow;
+
+			// Move it to the front for "most recent" sorting
+			const [existing] = stored.splice(existingIndex, 1); // remove
+			stored.unshift(existing); // re-insert at front
+		} else {
+			// New property => create entry
+			stored.unshift({
+				_id: propertyId,
+				datetimeClicked: dateNow,
+			});
+
+			// Keep only the 10 latest
+			if (stored.length > 10) {
+				stored.pop();
+			}
+		}
+
+		// Save back to localStorage
+		localStorage.setItem("latestViewed", JSON.stringify(stored));
+	} catch (err) {
+		console.error("Error storing latestViewed property:", err);
+	}
 };
